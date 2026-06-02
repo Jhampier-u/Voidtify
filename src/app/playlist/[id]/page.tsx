@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import {
   getMe,
@@ -19,7 +19,7 @@ export default async function PlaylistPage({
   params: Promise<{ id: string }>;
 }) {
   const session = await auth();
-  if (!session) return notFound();
+  if (!session) redirect("/");
 
   const { id } = await params;
 
