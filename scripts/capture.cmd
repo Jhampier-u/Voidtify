@@ -28,5 +28,10 @@ REM -f hace que curl salga con codigo distinto de cero ante un 4xx o 5xx. Sin
 REM el, una respuesta de error contaba como ejecucion correcta y el registro de
 REM la tarea programada no servia para detectar que algo iba mal.
 curl.exe -f -s -S -X POST -H "x-cron-secret: %SECRET%" http://127.0.0.1:%PUERTO%/api/cron/capture
+set "CODIGO=%errorlevel%"
 
-endlocal
+REM `endlocal` a secas devuelve el codigo a cero, asi que el fallo de curl se
+REM perdia justo en la ultima linea y el Programador de tareas seguia viendo
+REM exito. Con `&` en la misma linea, %CODIGO% se expande antes de que
+REM `endlocal` corra, y el codigo real sobrevive.
+endlocal & exit /b %CODIGO%
