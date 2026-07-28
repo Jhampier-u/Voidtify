@@ -86,7 +86,7 @@ if (!(globalThis as PatchedGlobal)[FETCH_PATCHED]) {
 //
 // Se fija explícitamente. `AUTH_URL` puede venir con o sin la ruta base, así que
 // se normaliza a solo el origen.
-const PUBLIC_ORIGIN = (process.env.AUTH_URL ?? "http://127.0.0.1:3000")
+const PUBLIC_ORIGIN = (process.env.AUTH_URL ?? "http://127.0.0.1:3210")
   .replace(/\/api\/auth\/?$/, "")
   .replace(/\/$/, "");
 

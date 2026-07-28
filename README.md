@@ -52,7 +52,7 @@ npm install
 
 1. Ve a [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) y haz login.
 2. "Create app". Nombre cualquiera, descripción cualquiera.
-3. **Redirect URI**: exactamente `http://127.0.0.1:3000/api/auth/callback/spotify` (Spotify no acepta `localhost` para apps nuevas).
+3. **Redirect URI**: exactamente `http://127.0.0.1:3210/api/auth/callback/spotify` (Spotify no acepta `localhost` para apps nuevas).
 4. Marca el scope **Web API**.
 5. Guarda **Client ID** y **Client Secret**.
 
@@ -76,7 +76,7 @@ SPOTIFY_CLIENT_ID=...
 SPOTIFY_CLIENT_SECRET=...
 LASTFM_API_KEY=...
 AUTH_SECRET=...
-AUTH_URL=http://127.0.0.1:3000
+AUTH_URL=http://127.0.0.1:3210
 ```
 
 Para generar un `AUTH_SECRET` nuevo:
@@ -91,7 +91,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 npm run dev
 ```
 
-Abre **http://127.0.0.1:3000** (no `localhost`).
+Abre **http://127.0.0.1:3210** (no `localhost`).
 
 ---
 
@@ -126,36 +126,79 @@ zona horaria **IANA** válida (p. ej. `America/Guayaquil`, `Europe/Madrid`,
 `America/Lima`) — no un offset ni una abreviatura.
 
 El **Redirect URI** del dashboard de Spotify debe ser exactamente
-`http://127.0.0.1:3000/api/auth/callback/spotify` — nunca `localhost`, que
+`http://127.0.0.1:3210/api/auth/callback/spotify` — nunca `localhost`, que
 Spotify rechaza en apps nuevas. La app lo envía explícito porque Auth.js en
 este fork de Next no consigue derivar el origen de la petición por sí solo.
 
+### El puerto 3210
+
+Voidtify escucha en el **3210**, no en el 3000. No es capricho: en la máquina
+de desarrollo convivía con otra copia del proyecto que arrancaba un `next dev`
+en el 3000, y cuando esa copia ganaba el puerto la captura seguía disparándose
+puntual cada 20 minutos contra la app equivocada — que respondía con un error
+porque su base de datos no tiene el token de Spotify. Nadie capturaba nada y
+nada lo delataba. Un puerto propio elimina la clase entera de problema.
+
+El puerto vive en tres sitios que deben coincidir: el script `dev` de
+`package.json`, y la constante `PUERTO` de `scripts/capture.cmd` y
+`scripts/servidor.cmd`.
+
 ### En local (Windows)
 
-Con la app corriendo, crea la tarea programada (PowerShell como administrador):
+Dos tareas programadas, que se instalan de una vez en una consola de
+**administrador**:
 
 ```powershell
-schtasks /Create /TN "Voidtify captura" /SC MINUTE /MO 20 /TR "C:\Voidtify\scripts\capture.cmd" /F
+powershell -ExecutionPolicy Bypass -File C:\Voidtify\scripts\instalar-tareas.ps1
 ```
 
-La tarea apunta a `scripts/capture.cmd`, que lee `CRON_SECRET` de `.env.local` y hace la petición. Es deliberado no meter el `curl` directamente en `/TR`: el parser de `schtasks` rompe con comillas anidadas y acaba interpretando el secreto como un argumento suelto. Además así el secreto no queda escrito en la definición de la tarea.
+| Tarea | Cuándo | Qué hace |
+|---|---|---|
+| `Voidtify servidor` | al iniciar sesión | levanta el servidor si no hay ninguno |
+| `Voidtify captura` | cada 20 min | pide una captura al endpoint del cron |
 
-Para probarla al momento:
+La de captura por sí sola no basta. El servidor muere con cada apagado y no
+vuelve solo, así que tras un reinicio la tarea seguía disparándose contra un
+puerto muerto: la ventana parpadeaba igual y no se guardaba nada. La captura
+moría en silencio hasta acordarse de arrancar el servidor a mano.
+
+Ambas pasan por `scripts/oculto.vbs`, que ejecuta el `.cmd` **sin ventana**.
+La alternativa nativa — «ejecutar tanto si el usuario inició sesión como si
+no» — necesita permisos que el usuario normal no tiene.
+
+`scripts/capture.cmd` lee `CRON_SECRET` de `.env.local` en vez de recibirlo
+como argumento. Es deliberado: el parser de `schtasks` rompe con comillas
+anidadas y acaba interpretando el secreto como un argumento suelto, y así
+además el secreto no queda escrito en la definición de la tarea.
+
+**Hace falta administrador** solo porque la primera versión de
+`Voidtify captura` se creó con permisos elevados y quedó siendo propiedad del
+grupo Administradores: el usuario normal ya no puede ni modificarla ni
+borrarla. El script la reemplaza.
+
+Los ajustes que trae la instalación, y por qué:
+
+- **corre con batería** — el valor por defecto de Windows es no arrancar la
+  tarea si el portátil está desenchufado, y no avisa. Con un portátil eso son
+  horas de escuchas perdidas sin ninguna señal.
+- **no se detiene al desenchufar** — misma razón, a mitad de ejecución.
+- **recupera ejecuciones perdidas** — si el equipo estaba apagado a la hora
+  exacta, arranca al encender en vez de esperar al siguiente múltiplo de 20.
+
+Para probar al momento, o parar el servidor de fondo (que no tiene ventana
+donde hacer Ctrl+C):
 
 ```powershell
 schtasks /Run /TN "Voidtify captura"
+.\scripts\parar-servidor.cmd
 ```
 
-O ejecutar el script directamente, sin pasar por el programador:
-
-```powershell
-.\scripts\capture.cmd
-```
+Si algo falla al arrancar, el log está en `data/servidor.log`.
 
 ### En un VPS
 
 ```bash
-*/20 * * * * curl -sX POST -H "x-cron-secret: EL_SECRETO" http://127.0.0.1:3000/api/cron/capture
+*/20 * * * * curl -fsX POST -H "x-cron-secret: EL_SECRETO" http://127.0.0.1:3210/api/cron/capture
 ```
 
 Misma ruta y mismo código en ambos entornos.

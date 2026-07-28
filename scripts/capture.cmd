@@ -7,8 +7,15 @@ REM acababa interpretandose como un argumento suelto.
 REM
 REM Lee CRON_SECRET de .env.local, asi que el secreto no aparece ni en la
 REM definicion de la tarea programada ni en ningun log.
+REM
+REM El puerto es fijo y propio de Voidtify. Estuvo en el 3000 y otra copia del
+REM proyecto que corre en esta maquina se lo quito: la captura siguio
+REM disparandose puntual contra la app equivocada, que respondia con un error
+REM porque su base de datos no tiene el token. Ver README.
 
 setlocal
+
+set "PUERTO=3210"
 
 for /f "usebackq tokens=1,* delims==" %%a in (`findstr /b "CRON_SECRET=" "%~dp0..\.env.local"`) do set "SECRET=%%b"
 
@@ -17,6 +24,9 @@ if "%SECRET%"=="" (
   exit /b 1
 )
 
-curl.exe -s -S -X POST -H "x-cron-secret: %SECRET%" http://127.0.0.1:3000/api/cron/capture
+REM -f hace que curl salga con codigo distinto de cero ante un 4xx o 5xx. Sin
+REM el, una respuesta de error contaba como ejecucion correcta y el registro de
+REM la tarea programada no servia para detectar que algo iba mal.
+curl.exe -f -s -S -X POST -H "x-cron-secret: %SECRET%" http://127.0.0.1:%PUERTO%/api/cron/capture
 
 endlocal
