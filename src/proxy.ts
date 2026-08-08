@@ -56,8 +56,16 @@ export function proxy(request: NextRequest) {
   // controla quien hace la petición.
   const seguro = url.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 
+  // El script va lo primero de todo, antes incluso del <title>. Estando al
+  // final del cuerpo, el navegador alcanzaba a pintar el mensaje y se veía un
+  // destello en cada carga. Aquí se ejecuta antes de que haya nada que pintar,
+  // así que el salto es invisible.
+  //
+  // Debajo quedan el `meta refresh` y el enlace, que solo entran en juego si el
+  // navegador tiene el JavaScript desactivado.
   return new Response(
     `<!doctype html><html lang="es"><head><meta charset="utf-8">` +
+      `<script>location.replace(${JSON.stringify(url)})</script>` +
       `<meta http-equiv="refresh" content="0;url=${seguro}">` +
       `<title>Voidtify</title>` +
       `<style>body{background:#0c0a09;color:#c4bdb2;font:14px ui-monospace,monospace;` +
@@ -65,7 +73,6 @@ export function proxy(request: NextRequest) {
       `a{color:#d2ff3a}</style></head><body>` +
       `<p>Spotify no admite <b>localhost</b>.<br>Te llevo a <b>127.0.0.1</b>…</p>` +
       `<p><a href="${seguro}">Seguir</a></p>` +
-      `<script>location.replace(${JSON.stringify(url)})</script>` +
       `</body></html>`,
     {
       status: 200,
