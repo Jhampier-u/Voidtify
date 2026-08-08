@@ -27,7 +27,12 @@ if "%SECRET%"=="" (
 REM -f hace que curl salga con codigo distinto de cero ante un 4xx o 5xx. Sin
 REM el, una respuesta de error contaba como ejecucion correcta y el registro de
 REM la tarea programada no servia para detectar que algo iba mal.
-curl.exe -f -s -S -X POST -H "x-cron-secret: %SECRET%" http://127.0.0.1:%PUERTO%/api/cron/capture
+REM
+REM --max-time acota la espera. Un servidor de desarrollo puede quedarse
+REM colgado sin cerrar la conexion: entonces curl esperaba indefinidamente y
+REM cada disparo dejaba un proceso vivo hasta que el Programador de tareas lo
+REM mataba diez minutos despues. Mejor fallar rapido y que se note.
+curl.exe -f -s -S --max-time 120 -X POST -H "x-cron-secret: %SECRET%" http://127.0.0.1:%PUERTO%/api/cron/capture
 set "CODIGO=%errorlevel%"
 
 REM `endlocal` a secas devuelve el codigo a cero, asi que el fallo de curl se

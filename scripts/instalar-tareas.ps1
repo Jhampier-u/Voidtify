@@ -83,7 +83,12 @@ function Nueva-Tarea {
     # UTF-16 con BOM: es lo que espera el Programador de tareas.
     $xml | Out-File -FilePath $tmp -Encoding Unicode
 
-    schtasks /Delete /TN $Nombre /F 2>$null | Out-Null
+    # Solo se borra si existe: `schtasks /Delete` sobre una tarea inexistente
+    # escribe en stderr, y con $ErrorActionPreference = 'Stop' eso aborta el
+    # script entero en la primera instalacion limpia.
+    if (Get-ScheduledTask -TaskName $Nombre -ErrorAction SilentlyContinue) {
+        schtasks /Delete /TN $Nombre /F 2>$null | Out-Null
+    }
     schtasks /Create /TN $Nombre /XML $tmp /F
     Remove-Item $tmp -Force
 }
@@ -107,8 +112,40 @@ Nueva-Tarea `
     -Script      'capture.cmd'
 
 Write-Host ''
-Write-Host 'Listo. Estado de las dos tareas:' -ForegroundColor Green
-Get-ScheduledTask -TaskName 'Voidtify *' |
+Write-Host 'Retirando la tarea huerfana del dashboard...' -ForegroundColor Cyan
+
+# "Juampi captura" quedo apuntando a un script que ya no existe: cuando musica
+# salio del dashboard se llevo consigo capture.cmd y la ruta /api/cron/capture.
+# Cada 20 minutos dejaba un wscript esperando en un cuadro de error invisible,
+# porque la tarea corre oculta.
+#
+# "Juampi servidor" NO se toca: el dashboard sigue vivo y lo sigue necesitando.
+$pendiente = $false
+if (Get-ScheduledTask -TaskName 'Juampi captura' -ErrorAction SilentlyContinue) {
+    # try/catch porque sin administrador `schtasks` escribe en stderr, y eso
+    # con $ErrorActionPreference = 'Stop' abortaria el script justo antes de
+    # explicar que hace falta elevar.
+    try { schtasks /End    /TN 'Juampi captura'    2>$null | Out-Null } catch {}
+    try { schtasks /Delete /TN 'Juampi captura' /F 2>$null | Out-Null } catch {}
+    if (Get-ScheduledTask -TaskName 'Juampi captura' -ErrorAction SilentlyContinue) {
+        Write-Host '  Juampi captura : NO se pudo retirar' -ForegroundColor Yellow
+        $pendiente = $true
+    } else {
+        Write-Host '  Juampi captura : retirada'
+    }
+} else {
+    Write-Host '  Juampi captura : ya no existe'
+}
+
+if ($pendiente) {
+    Write-Host ''
+    Write-Host 'Vuelve a ejecutar este script COMO ADMINISTRADOR.' -ForegroundColor Yellow
+    Write-Host 'Las tareas son propiedad del grupo Administradores y un usuario normal no puede borrarlas.' -ForegroundColor Yellow
+}
+
+Write-Host ''
+Write-Host 'Estado de las tareas:' -ForegroundColor Green
+Get-ScheduledTask -TaskName 'Voidtify *', 'Juampi *' -ErrorAction SilentlyContinue |
     Select-Object TaskName, State,
         @{n='Bateria'; e={ if ($_.Settings.DisallowStartIfOnBatteries) { 'NO corre' } else { 'corre' } }},
         @{n='Recupera'; e={ $_.Settings.StartWhenAvailable }} |
