@@ -1,40 +1,56 @@
 import NextAuth from "next-auth";
 import Spotify from "next-auth/providers/spotify";
 
-// Auth.js v5 + Next.js sometimes computes the callback origin as `localhost`
-// during the token exchange even when the request came in via 127.0.0.1.
-// Spotify rejects new apps with localhost redirect URIs, so we patch the
-// outgoing token request body to use 127.0.0.1 — matching what was sent in
-// the authorize step and what's registered in the Spotify dashboard.
+// Auth.js v5 beta sobre este fork de Next no consigue derivar el origen de la
+// petición: `parseUrl` cae a su valor por defecto `http://localhost:3000/api/auth`
+// y manda ese `redirect_uri` a Spotify. Ni AUTH_URL, ni NEXTAUTH_URL, ni la
+// cabecera Host lo corrigen (comprobado los tres). Y Spotify rechaza `localhost`
+// en apps nuevas: solo admite la IP de loopback.
+//
+// Se fija explícitamente. `AUTH_URL` puede venir con o sin la ruta base, así que
+// se normaliza a solo el origen.
+const PUBLIC_ORIGIN = (process.env.AUTH_URL ?? "http://127.0.0.1:3210")
+  .replace(/\/api\/auth\/?$/, "")
+  .replace(/\/$/, "");
+
+const SPOTIFY_REDIRECT_URI = `${PUBLIC_ORIGIN}/api/auth/callback/spotify`;
+
 const FETCH_PATCHED = Symbol.for("ledger.spotifyTokenFetchPatched");
 type PatchedGlobal = typeof globalThis & { [FETCH_PATCHED]?: true };
 
 /**
- * Reescribe `localhost` por `127.0.0.1` en el cuerpo del intercambio de token.
+ * Impone `SPOTIFY_REDIRECT_URI` en el cuerpo del intercambio de token.
  *
  * Spotify exige que el `redirect_uri` del canje sea idéntico al usado al
- * autorizar. Como Auth.js construye el suyo con `localhost` (ver PUBLIC_ORIGIN
- * más abajo) y nosotros autorizamos con la IP de loopback, sin esto el canje
- * falla con `invalid_grant: Invalid redirect URI`.
+ * autorizar. Auth.js construye el suyo desde el origen que cree que tiene, que
+ * aquí es siempre el valor por defecto `http://localhost:3000`, así que sin
+ * esto el canje falla con `invalid_grant: Invalid redirect URI`.
  *
- * El cuerpo llega como `URLSearchParams`, no como cadena — la versión anterior
- * de este parche solo contemplaba cadenas y por eso nunca llegaba a actuar.
+ * La versión anterior sustituía `localhost` por `127.0.0.1` y dejaba el puerto
+ * intacto. Mientras la app vivió en el 3000 coincidía por casualidad; al
+ * moverla al 3210 pasó a mandar `127.0.0.1:3000` a un canje autorizado con
+ * `127.0.0.1:3210`, y el login dejó de funcionar sin que nada más cambiara.
+ * Se escribe el valor entero, que es el mismo que se usa al autorizar: así no
+ * hay dos fuentes de verdad que puedan separarse.
  */
-function rewriteLoopback(body: BodyInit | null | undefined): {
+function forzarRedirectUri(body: BodyInit | null | undefined): {
   body: BodyInit | null | undefined;
   changed: boolean;
 } {
-  if (typeof body === "string" && body.includes("localhost")) {
-    return { body: body.replaceAll("localhost", "127.0.0.1"), changed: true };
+  const aplicar = (texto: string) => {
+    const params = new URLSearchParams(texto);
+    if (params.get("redirect_uri") === SPOTIFY_REDIRECT_URI) return null;
+    params.set("redirect_uri", SPOTIFY_REDIRECT_URI);
+    return params;
+  };
+
+  if (typeof body === "string") {
+    const params = aplicar(body);
+    return params ? { body: params.toString(), changed: true } : { body, changed: false };
   }
   if (body instanceof URLSearchParams) {
-    const texto = body.toString();
-    if (texto.includes("localhost")) {
-      return {
-        body: new URLSearchParams(texto.replaceAll("localhost", "127.0.0.1")),
-        changed: true,
-      };
-    }
+    const params = aplicar(body.toString());
+    return params ? { body: params, changed: true } : { body, changed: false };
   }
   return { body, changed: false };
 }
@@ -57,18 +73,14 @@ if (!(globalThis as PatchedGlobal)[FETCH_PATCHED]) {
     if (url?.includes("accounts.spotify.com/api/token")) {
       // El cuerpo puede venir en `init` o dentro de un `Request`.
       if (init?.body != null) {
-        const { body, changed } = rewriteLoopback(init.body);
+        const { body, changed } = forzarRedirectUri(init.body);
         if (changed) init = { ...init, body };
       } else if (input instanceof Request) {
         const texto = await input.clone().text();
-        if (texto.includes("localhost")) {
+        const { body, changed } = forzarRedirectUri(texto);
+        if (changed) {
           const headers = new Headers(input.headers);
-          return origFetch(
-            new Request(input, {
-              body: texto.replaceAll("localhost", "127.0.0.1"),
-              headers,
-            }),
-          );
+          return origFetch(new Request(input, { body, headers }));
         }
       }
     }
@@ -77,20 +89,6 @@ if (!(globalThis as PatchedGlobal)[FETCH_PATCHED]) {
   };
   (globalThis as PatchedGlobal)[FETCH_PATCHED] = true;
 }
-
-// Auth.js v5 beta sobre este fork de Next no consigue derivar el origen de la
-// petición: `parseUrl` cae a su valor por defecto `http://localhost:3000/api/auth`
-// y manda ese `redirect_uri` a Spotify. Ni AUTH_URL, ni NEXTAUTH_URL, ni la
-// cabecera Host lo corrigen (comprobado los tres). Y Spotify rechaza `localhost`
-// en apps nuevas: solo admite la IP de loopback.
-//
-// Se fija explícitamente. `AUTH_URL` puede venir con o sin la ruta base, así que
-// se normaliza a solo el origen.
-const PUBLIC_ORIGIN = (process.env.AUTH_URL ?? "http://127.0.0.1:3210")
-  .replace(/\/api\/auth\/?$/, "")
-  .replace(/\/$/, "");
-
-const SPOTIFY_REDIRECT_URI = `${PUBLIC_ORIGIN}/api/auth/callback/spotify`;
 
 const SPOTIFY_SCOPES = [
   "user-read-private",
