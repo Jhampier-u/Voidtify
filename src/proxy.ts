@@ -31,9 +31,18 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Solo se interviene en la navegación. Una petición de datos que recibiera
-  // HTML en vez de JSON fallaría de una forma mucho más confusa que el
-  // problema que estamos resolviendo.
+  // Solo GET. La página puente salta con `location.replace`, que siempre emite
+  // un GET: un POST interceptado llegaría al destino convertido en GET y sin
+  // cuerpo. Eso rompía el envío del formulario de entrada — Auth.js exige POST
+  // en /api/auth/signin/spotify y respondía «UnknownAction», que la pantalla
+  // presenta como «Server error / problem with the server configuration».
+  //
+  // No hace falta más: quien navega a localhost salta a 127.0.0.1 antes de
+  // pulsar nada, así que el POST ya sale del origen correcto.
+  if (request.method !== "GET") return NextResponse.next();
+
+  // Solo navegación. Una petición de datos que recibiera HTML en vez de JSON
+  // fallaría de una forma mucho más confusa que el problema que resolvemos.
   if (!request.headers.get("accept")?.includes("text/html")) {
     return NextResponse.next();
   }
