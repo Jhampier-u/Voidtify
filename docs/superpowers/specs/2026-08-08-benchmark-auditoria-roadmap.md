@@ -151,9 +151,23 @@ es hoy más robusto que el suyo.
 
 **Hallazgos, por gravedad:**
 
-1. **El `client_secret` sigue sin rotar.** Se pegó en una conversación en julio.
-   Verificado hoy que sigue siendo válido: se refrescó un token con él.
-   Cualquiera con ese par puede suplantar a la aplicación.
+1. **El `client_secret` sigue sin rotar — riesgo aceptado (22/08/2026).**
+   Se pegó en una conversación en julio y se verificó que sigue siendo válido.
+   El dueño decidió no rotarlo por ahora. No volver a plantearlo como pendiente.
+
+   Por qué es defendible en esta instalación: las tres Redirect URIs
+   registradas son de loopback (`127.0.0.1`, puertos 3000, 3210 y 5173), y el
+   flujo de OAuth exige que el `redirect_uri` coincida con una registrada. Sin
+   una URI pública, quien tenga el par no puede recibir el código en un
+   servidor suyo, y el historial de escucha no es alcanzable: vive tras el
+   `refresh_token`, que está en la base local y no se filtró.
+
+   Lo que sí queda expuesto es el flujo de credenciales de cliente, que da
+   acceso al catálogo público a nombre de esta aplicación y consume su cuota.
+
+   **Cuándo deja de ser defendible:** al registrar una Redirect URI pública,
+   que es exactamente lo que pide el paso de HTTPS con dominio real del punto 1
+   del roadmap. Rotar entonces, antes de registrarla.
 2. **No hay comprobación de identidad.** Cualquiera que complete el OAuth entra y
    ve todo el historial. Hoy da igual porque el servidor escucha solo en
    `127.0.0.1`; el día que esto vaya a un VPS es una fuga total. Hace falta lista
@@ -213,7 +227,9 @@ Ordenado por relación entre valor y riesgo.
 
 *Por qué primero:* todo lo demás aumenta la superficie expuesta.
 
-- Rotar el `client_secret`; mover `.env.local` a secretos del sistema.
+- Rotar el `client_secret` **en el mismo paso en que se registre una Redirect
+  URI pública**, no antes: mientras solo haya URIs de loopback el riesgo está
+  aceptado (ver hallazgo 1). Mover `.env.local` a secretos del sistema.
 - Lista blanca de `spotifyUserId` en el callback `signIn`.
 - `requireSession()` explícito en las once acciones de `spotify-actions.ts`.
 - Unificar el refresco: que el JWT lea y escriba en `spotify_credentials`.
