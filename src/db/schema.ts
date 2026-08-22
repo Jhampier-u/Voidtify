@@ -205,4 +205,19 @@ export const artistGenres = sqliteTable("artist_genres", {
   fetchedAt: integer("fetched_at").notNull(),
 });
 
+/**
+ * Cache de la busqueda de un tema de Last.fm en el catalogo de Spotify.
+ *
+ * `trackUri` a null significa "buscado y no encontrado". Guardar tambien los
+ * fallos es deliberado: sin eso, cada visita repetiria la misma busqueda
+ * infructuosa contra Spotify.
+ */
+export const lastfmResolucion = sqliteTable("lastfm_resolucion", {
+  clave: text("clave").primaryKey(),
+  trackUri: text("track_uri"),
+  fetchedAt: integer("fetched_at").notNull(),
+});
+
+export type LastfmResolucionRow = typeof lastfmResolucion.$inferSelect;
+
 export type ArtistGenresRow = typeof artistGenres.$inferSelect;

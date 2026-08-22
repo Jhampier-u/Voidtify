@@ -11,6 +11,7 @@ export default function TopBar({
   active?:
     | "portada"
     | "historial"
+    | "descubrir"
     | "biblioteca"
     | "library"
     | "tags"
@@ -31,6 +32,9 @@ export default function TopBar({
         <nav className="hidden sm:flex items-center gap-5">
           <NavLink href="/" active={active === "portada"}>
             Portada
+          </NavLink>
+          <NavLink href="/descubrir" active={active === "descubrir"}>
+            Descubrir
           </NavLink>
           <NavLink href="/historial" active={active === "historial"}>
             Historial

@@ -141,4 +141,14 @@ export const SCHEMA_SQL = `
     genres     TEXT NOT NULL DEFAULT '[]',
     fetched_at INTEGER NOT NULL
   );
+
+  -- Cache de la busqueda de un tema de Last.fm en el catalogo de Spotify.
+  -- Un track_uri a NULL significa "buscado y no encontrado": guardar tambien
+  -- los fallos evita repetir la misma busqueda infructuosa en cada visita.
+  -- Sin acentos graves aqui dentro: cerrarian la plantilla de cadena.
+  CREATE TABLE IF NOT EXISTS lastfm_resolucion (
+    clave      TEXT PRIMARY KEY,
+    track_uri  TEXT,
+    fetched_at INTEGER NOT NULL
+  );
 `;
