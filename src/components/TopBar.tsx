@@ -12,6 +12,7 @@ export default function TopBar({
     | "portada"
     | "historial"
     | "descubrir"
+    | "informes"
     | "biblioteca"
     | "library"
     | "tags"
@@ -35,6 +36,9 @@ export default function TopBar({
           </NavLink>
           <NavLink href="/descubrir" active={active === "descubrir"}>
             Descubrir
+          </NavLink>
+          <NavLink href="/informes" active={active === "informes"}>
+            Informes
           </NavLink>
           <NavLink href="/historial" active={active === "historial"}>
             Historial
