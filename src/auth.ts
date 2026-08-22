@@ -148,6 +148,48 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    /**
+     * Deja entrar solo al dueño de la instancia.
+     *
+     * Sin esto, cualquiera que complete el OAuth con su propia cuenta de
+     * Spotify entra y ve el historial entero: 272.000 escuchas, con fechas y
+     * horas. Escuchando solo en 127.0.0.1 da igual, pero es exactamente la
+     * clase de agujero que no se ve venir el día que esto viva en un VPS.
+     *
+     * Se confía en el primero que entra. Si no hay credenciales guardadas, la
+     * instancia está recién montada y quien inicia sesión la reclama; a partir
+     * de ahí solo ese identificador vale. Así queda protegida por defecto, sin
+     * que haya que configurar nada y sin riesgo de dejar fuera al dueño de una
+     * instalación nueva.
+     *
+     * `ALLOWED_SPOTIFY_USER_IDS` permite fijar la lista a mano, separada por
+     * comas, cuando se quiera algo distinto de lo guardado.
+     */
+    async signIn({ profile }) {
+      let guardada: string | null = null;
+      try {
+        const { getCredentials } = await import("@/lib/credentials");
+        guardada = (await getCredentials())?.spotifyUserId ?? null;
+      } catch (e) {
+        // Fallar cerrado: si no se puede saber de quién es la instancia, no se
+        // deja entrar a nadie.
+        console.error("[auth] no se pudo leer la identidad guardada", e);
+        return false;
+      }
+
+      const { decidirAcceso } = await import("@/lib/acceso");
+      const decision = decidirAcceso(
+        process.env.ALLOWED_SPOTIFY_USER_IDS,
+        guardada,
+        (profile as { id?: string } | undefined)?.id,
+      );
+
+      if (!decision.permitir) {
+        console.warn(`[auth] acceso rechazado (${decision.motivo}).`);
+      }
+      return decision.permitir;
+    },
+
     async jwt({ token, account, profile }) {
       if (account) {
         token.accessToken = account.access_token;
@@ -188,6 +230,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.accessToken = refreshed.access_token;
         token.expiresAt = Date.now() + refreshed.expires_in * 1000;
         if (refreshed.refresh_token) token.refreshToken = refreshed.refresh_token;
+
+        // El refresco por navegador y el del cron eran dos verdades separadas.
+        // Spotify puede rotar el `refresh_token` al canjearlo, y cuando lo hacía
+        // por esta rama la fila de `spotify_credentials` se quedaba con el
+        // anterior: la captura seguía intentándolo hasta que Spotify lo
+        // rechazaba, y moría sin que nadie hubiera tocado nada.
+        try {
+          const { updateAccessToken } = await import("@/lib/credentials");
+          await updateAccessToken(
+            refreshed.access_token,
+            Date.now() + refreshed.expires_in * 1000,
+            refreshed.refresh_token,
+          );
+        } catch (e) {
+          // No es motivo para tumbar la sesión del navegador, que funciona sin
+          // la base. Se registra y `/ajustes` mostrará que la captura falla.
+          console.error("[auth] no se pudo propagar el token refrescado", e);
+        }
+
         return token;
       } catch (e) {
         console.error("Token refresh failed", e);

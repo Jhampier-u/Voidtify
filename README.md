@@ -108,6 +108,32 @@ Si quieres compartir tags y smart playlists entre máquinas, exporta/importa el 
 
 ---
 
+## Quién puede entrar
+
+La app es de una sola persona, pero el botón de entrar con Spotify lo puede
+pulsar cualquiera. Sin ninguna comprobación, quien complete el OAuth con **su**
+cuenta entra y ve el historial entero: cientos de miles de escuchas con sus
+fechas y sus horas. Escuchando solo en `127.0.0.1` da igual; en un VPS es una
+fuga total.
+
+Se confía en el primero que entra. Con la base recién creada, quien inicie
+sesión reclama la instancia; a partir de ahí solo ese id de Spotify vale. Así
+queda protegida por defecto, sin configurar nada y sin riesgo de dejar fuera al
+dueño de una instalación nueva.
+
+Para fijar la lista a mano —varias cuentas, o una distinta de la guardada—:
+
+```
+ALLOWED_SPOTIFY_USER_IDS=id_uno,id_dos
+```
+
+Manda sobre lo guardado. Vacía o a base de comas se ignora, que un descuido de
+configuración no debe bloquear el acceso.
+
+La decisión vive en `src/lib/acceso.ts`, aparte del callback de Auth.js y sin
+dependencias, para que tenga tests: un control de acceso que solo se puede
+verificar iniciando sesión a mano con dos cuentas distintas no se verifica nunca.
+
 ## Captura de escuchas
 
 La API de Spotify no guarda tu historial: solo devuelve las **últimas 50

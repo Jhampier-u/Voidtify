@@ -2,6 +2,7 @@
 
 import { revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireSession } from "./require-session";
 import {
   spotifyFetch,
   getPlaylistTracks,
@@ -29,6 +30,7 @@ export async function removeTracksFromPlaylist(
   playlistId: string,
   uris: string[],
 ) {
+  await requireSession();
   // Spotify Feb 2026: body field is `items` with objects `{uri}`.
   for (const chunk of chunked(uris)) {
     await spotifyFetch(`/playlists/${playlistId}/items`, {
@@ -45,6 +47,7 @@ export async function addTracksToPlaylist(
   playlistId: string,
   uris: string[],
 ) {
+  await requireSession();
   for (const chunk of chunked(uris)) {
     await spotifyFetch(`/playlists/${playlistId}/items`, {
       method: "POST",
@@ -65,6 +68,7 @@ export async function reorderTrack(
   rangeStart: number,
   insertBefore: number,
 ): Promise<void> {
+  await requireSession();
   if (rangeStart === insertBefore || rangeStart + 1 === insertBefore) return;
   await spotifyFetch(`/playlists/${playlistId}/items`, {
     method: "PUT",
@@ -81,6 +85,7 @@ export async function copyTracksToPlaylist(
   targetPlaylistId: string,
   uris: string[],
 ) {
+  await requireSession();
   await addTracksToPlaylist(targetPlaylistId, uris);
 }
 
@@ -89,6 +94,7 @@ export async function moveTracksToPlaylist(
   targetPlaylistId: string,
   uris: string[],
 ) {
+  await requireSession();
   await addTracksToPlaylist(targetPlaylistId, uris);
   await removeTracksFromPlaylist(fromPlaylistId, uris);
 }
@@ -111,6 +117,7 @@ export async function cleanupDuplicates(
   playlistId: string,
   dupUris: string[],
 ): Promise<{ removed: number; readded: number }> {
+  await requireSession();
   if (dupUris.length === 0) return { removed: 0, readded: 0 };
 
   // Remove ALL instances of each duplicate URI.
@@ -143,6 +150,7 @@ export async function fetchLikedPage(
   total: number;
   next: string | null;
 }> {
+  await requireSession();
   const data = await getLikedSongs(limit, offset);
   return { items: data.items, total: data.total, next: data.next };
 }
@@ -152,6 +160,7 @@ export async function fetchTracksPage(
   playlistId: string,
   offset: number,
 ): Promise<{ items: PlaylistTrackItem[]; total: number; next: string | null }> {
+  await requireSession();
   const data = await getPlaylistTracks(playlistId, 100, offset);
   return { items: data.items, total: data.total, next: data.next };
 }
@@ -159,6 +168,7 @@ export async function fetchTracksPage(
 export async function createPlaylist(
   input: CreatePlaylistInput,
 ): Promise<SpotifyPlaylist> {
+  await requireSession();
   const name = input.name.trim();
   if (!name) throw new Error("El nombre no puede estar vacío");
 
@@ -189,6 +199,7 @@ export async function createPlaylistFromTracks(
   input: CreatePlaylistInput,
   uris: string[],
 ): Promise<SpotifyPlaylist> {
+  await requireSession();
   const playlist = await createPlaylist({ ...input, redirectAfter: false });
   if (uris.length > 0) {
     await addTracksToPlaylist(playlist.id, uris);
@@ -207,6 +218,7 @@ export async function mergePlaylists(
   input: CreatePlaylistInput,
   options: { dedupe: boolean } = { dedupe: true },
 ): Promise<SpotifyPlaylist> {
+  await requireSession();
   if (sourceIds.length === 0) throw new Error("Selecciona playlists");
   if (!input.name?.trim()) throw new Error("Nombre obligatorio");
 
