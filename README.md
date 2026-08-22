@@ -12,6 +12,7 @@ Lo que Spotify no te deja decir sobre tu música, dícelo tú.
 - **Índice editorial** de todas tus playlists, con filtros (Tuyas / Seguidas / Colab) y un destacado.
 - **Detalle de playlist** con carga lazy (no descarga 8 000 canciones de golpe), selección múltiple para mover/copiar/quitar tracks, y reordenar por drag-and-drop.
 - **Detector de duplicados** dentro de cada playlist, con botón para limpiar (deja una copia de cada uno).
+- **Ordenar una playlist por tu propio historial**: cuántas veces sonó cada canción, cuándo fue la última, a qué hora suele sonar y cuánto la saltas. Es el sustituto de ordenar por BPM o energía — Spotify retiró `audio-features` y hoy responde 403, así que esas propiedades ya no existen para nadie.
 - **Filtros por género** y **tags personalizados** que tú creas — y un botón "Crear playlist con N canciones" que materializa cualquier filtro como una playlist real en Spotify.
 - **Crear · fusionar · dividir** playlists.
 - **Smart playlists** con reglas (incluir/excluir tags, géneros, fechas, límite). Pulsas "Materializar" y la playlist real se actualiza en Spotify.

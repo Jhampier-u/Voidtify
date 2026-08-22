@@ -11,6 +11,11 @@ import {
 } from "@/lib/spotify-actions";
 import { getArtistGenres } from "@/lib/genre-actions";
 import { getTagsForTracks } from "@/lib/tag-actions";
+import {
+  getHistoriaDeCanciones,
+  type HistoriaPorUri,
+} from "@/lib/track-history-actions";
+import type { TrackHistory } from "@/lib/stats/track-history";
 import type { Tag } from "@/lib/tags";
 import type { PlaylistTrackItem, SpotifyPlaylist } from "@/lib/spotify";
 import { playlistTrackTotal } from "@/lib/playlist-utils";
@@ -29,6 +34,64 @@ type Props = {
 };
 
 const trackOf = (i: PlaylistTrackItem) => i.item ?? i.track;
+
+/**
+ * Criterios de orden por historia propia.
+ *
+ * Es el sustituto de ordenar por BPM o energía: Spotify retiró `audio-features`
+ * y hoy devuelve 403, así que las propiedades acústicas no están disponibles.
+ * Esto ordena por lo que sí sabemos, que además es nuestro y nadie puede
+ * retirarnos.
+ */
+type OrdenHistoria =
+  | "mas-escuchadas"
+  | "menos-escuchadas"
+  | "mas-abandonadas"
+  | "olvidadas"
+  | "recientes";
+
+const ETIQUETAS_ORDEN: Record<OrdenHistoria, string> = {
+  "mas-escuchadas": "Más escuchadas",
+  "menos-escuchadas": "Menos escuchadas",
+  "mas-abandonadas": "Más saltadas",
+  olvidadas: "Sin sonar hace más",
+  recientes: "Sonaron hace poco",
+};
+
+/**
+ * Las canciones sin historia van siempre al final, ordene como ordene.
+ *
+ * Sin esto acabarían arriba en cualquier orden ascendente —cero escuchas es el
+ * mínimo, hace cero días es el mínimo— y taparían justo lo que se busca.
+ */
+function comparar(
+  a: TrackHistory | undefined,
+  b: TrackHistory | undefined,
+  criterio: OrdenHistoria,
+): number {
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+
+  switch (criterio) {
+    case "mas-escuchadas":
+      return b.plays - a.plays;
+    case "menos-escuchadas":
+      return a.plays - b.plays;
+    case "mas-abandonadas": {
+      // Sin datos de abandono no se puede comparar: esas van detrás de las que
+      // sí los tienen, en vez de contar como cero saltos.
+      if (a.tasaSalto === null && b.tasaSalto === null) return 0;
+      if (a.tasaSalto === null) return 1;
+      if (b.tasaSalto === null) return -1;
+      return b.tasaSalto - a.tasaSalto;
+    }
+    case "olvidadas":
+      return b.diasDesdeUltima - a.diasDesdeUltima;
+    case "recientes":
+      return a.diasDesdeUltima - b.diasDesdeUltima;
+  }
+}
 
 export default function PlaylistTracksTable({
   playlistId,
@@ -58,6 +121,12 @@ export default function PlaylistTracksTable({
   );
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<Set<number>>(new Set());
+
+  // Historia de escucha: se pide bajo demanda porque cruza la playlist con el
+  // archivo entero y no tiene sentido pagarlo en cada visita a la página.
+  const [historia, setHistoria] = useState<HistoriaPorUri | null>(null);
+  const [cargandoHistoria, setCargandoHistoria] = useState(false);
+  const [orden, setOrden] = useState<OrdenHistoria | null>(null);
 
   // Genre filtering state
   const [genreData, setGenreData] = useState<Record<string, string[]> | null>(
@@ -139,10 +208,40 @@ export default function PlaylistTracksTable({
     }
   };
 
+  /** Cruza las canciones cargadas con el archivo de escuchas. */
+  const cargarHistoria = async () => {
+    setCargandoHistoria(true);
+    setError(null);
+    try {
+      const entradas = tracks
+        .map((it) => trackOf(it))
+        .filter((t): t is NonNullable<typeof t> => Boolean(t?.uri))
+        .map((t) => ({
+          uri: t.uri,
+          artista: t.artists[0]?.name ?? "",
+          titulo: t.name,
+        }));
+      setHistoria(await getHistoriaDeCanciones(entradas));
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo leer tu historial",
+      );
+    } finally {
+      setCargandoHistoria(false);
+    }
+  };
+
   // Reorder via drag-and-drop. Only enabled when no filters are active and
   // the user owns the playlist (so positions are meaningful and writable).
+  //
+  // Un orden por historia cuenta como filtro a estos efectos: al arrastrar se
+  // envían índices de la playlist real, así que si lo que ves está reordenado,
+  // soltar una fila movería una canción distinta de la que crees.
   const filtersActive =
-    selectedGenres.size > 0 || selectedTagIds.size > 0 || showOnlyDups;
+    selectedGenres.size > 0 ||
+    selectedTagIds.size > 0 ||
+    showOnlyDups ||
+    orden !== null;
   const reorderEnabled = ownedByMe && !filtersActive;
 
   const handleDrop = async (fromIndex: number, toIndex: number) => {
@@ -415,6 +514,20 @@ export default function PlaylistTracksTable({
     tagsByUri,
   ]);
 
+  // El orden se aplica sobre lo ya filtrado, y sin mutar: `visibleEntries` es
+  // el resultado de un `useMemo` y ordenarlo en el sitio lo corrompería para
+  // los demás consumidores.
+  const entradasOrdenadas = useMemo(() => {
+    if (!orden || !historia) return visibleEntries;
+    return [...visibleEntries].sort((a, b) =>
+      comparar(
+        historia[trackOf(a.item)?.uri ?? ""],
+        historia[trackOf(b.item)?.uri ?? ""],
+        orden,
+      ),
+    );
+  }, [visibleEntries, orden, historia]);
+
   // URIs of currently visible (filtered) tracks — used for "materialize filter".
   const visibleUris = useMemo(
     () =>
@@ -586,8 +699,59 @@ export default function PlaylistTracksTable({
         )}
       </div>
 
+      <section className="mb-6 pb-5 hairline-b">
+        {!historia ? (
+          <div className="flex items-center gap-4 flex-wrap">
+            <button
+              onClick={cargarHistoria}
+              disabled={cargandoHistoria}
+              className="label-mono border border-current px-4 py-2 hover:text-acid transition-colors disabled:opacity-40"
+            >
+              {cargandoHistoria ? "Cruzando…" : "Cruzar con mi historial"}
+            </button>
+            <p className="label-mono text-mute">
+              Cuántas veces sonó cada una, cuándo fue la última y cuánto la
+              saltas.
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="label-mono text-mute">Ordenar por</span>
+            {(Object.keys(ETIQUETAS_ORDEN) as OrdenHistoria[]).map((id) => (
+              <button
+                key={id}
+                onClick={() => setOrden(orden === id ? null : id)}
+                className={`label-mono transition-colors ${
+                  orden === id ? "text-acid" : "text-mute hover:text-cream"
+                }`}
+              >
+                {ETIQUETAS_ORDEN[id]}
+              </button>
+            ))}
+            {orden && (
+              <button
+                onClick={() => setOrden(null)}
+                className="label-mono text-blood hover:text-acid transition-colors"
+              >
+                Orden original
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Se avisa porque el arrastre desaparece sin más explicación, y desde
+            fuera parece que se ha roto. */}
+        {orden !== null && ownedByMe && (
+          <p className="label-mono text-mute mt-3">
+            Reordenar arrastrando está desactivado mientras ordenas: las
+            posiciones que se envían a Spotify son las de la playlist real, no
+            las que ves.
+          </p>
+        )}
+      </section>
+
       <ul>
-        {visibleEntries.map(({ item, index }) => {
+        {entradasOrdenadas.map(({ item, index }) => {
           const t = trackOf(item);
           const uri = t?.uri;
           const isSel = uri ? selected.has(uri) : false;
@@ -605,6 +769,7 @@ export default function PlaylistTracksTable({
               selectable={Boolean(uri)}
               dupCount={dupCount}
               tags={trackTags}
+              historia={uri ? historia?.[uri] : undefined}
               draggable={reorderEnabled}
               dragging={draggingIndex === positionZero}
               hoverBefore={hoverIndex === positionZero}
@@ -980,6 +1145,7 @@ function TrackRow({
   selectable,
   dupCount = 1,
   tags = [],
+  historia,
   draggable = false,
   dragging = false,
   hoverBefore = false,
@@ -996,6 +1162,7 @@ function TrackRow({
   selectable: boolean;
   dupCount?: number;
   tags?: Tag[];
+  historia?: TrackHistory;
   draggable?: boolean;
   dragging?: boolean;
   hoverBefore?: boolean;
@@ -1093,6 +1260,34 @@ function TrackRow({
         <p className="font-mono text-[11px] text-mute truncate mt-0.5">
           {artists}
         </p>
+        {historia !== undefined && (
+          <p className="label-mono text-[10px] text-mute mt-1 flex gap-3 flex-wrap">
+            <span className="num-tabular text-cream-dim">
+              {historia.plays.toLocaleString("es")}{" "}
+              {historia.plays === 1 ? "vez" : "veces"}
+            </span>
+            <span className="num-tabular">
+              {historia.diasDesdeUltima === 0
+                ? "hoy"
+                : `hace ${historia.diasDesdeUltima.toLocaleString("es")} d`}
+            </span>
+            {historia.horaModal !== null && (
+              <span className="num-tabular">
+                {String(historia.horaModal).padStart(2, "0")}h
+              </span>
+            )}
+            {/* Sin filas importadas no hay dato de abandono: se calla en vez de
+                mostrar un 0 % que parecería medido. */}
+            {historia.tasaSalto !== null && (
+              <span
+                className="num-tabular"
+                title={`${historia.abandonadas} de ${historia.conDatosSalto} veces`}
+              >
+                {Math.round(historia.tasaSalto * 100)} % saltada
+              </span>
+            )}
+          </p>
+        )}
       </div>
       <p className="hidden md:block font-mono text-xs text-mute truncate">
         {t.album?.name}
