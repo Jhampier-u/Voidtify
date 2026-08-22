@@ -18,8 +18,10 @@ type Genero = {
  *
  * Los géneros no vienen del dump ni de la API de Spotify —cuyo campo `genres`
  * está deprecado y llega vacío— sino de Last.fm, consultado artista a artista.
- * Como eso lleva tiempo, el panel enseña cuántos faltan y deja lanzarlo por
- * lotes en vez de fingir que el dato aparece solo.
+ * El vocabulario lo rellena sola la captura periódica, veinte artistas cada
+ * veinte minutos y los más escuchados primero. El botón está para adelantar un
+ * lote cuando se tiene prisa, no porque haga falta pulsarlo: cuando dependía de
+ * eso, a las dos semanas había 40 artistas resueltos de 10.680.
  */
 export default function GenrePanel({
   generos,
@@ -97,13 +99,18 @@ export default function GenrePanel({
             disabled={pendiente}
             className="label-mono border border-current px-4 py-2 disabled:opacity-50"
           >
-            {pendiente ? "Consultando Last.fm…" : `Resolver ${restantes} artistas`}
+            {pendiente ? "Consultando Last.fm…" : "Adelantar un lote"}
           </button>
 
-          {ultimo && (
+          {ultimo ? (
             <span className="label-mono text-mute">
               {ultimo.conEtiquetas} con etiquetas · {ultimo.sinEtiquetas} sin
               ellas · quedan {ultimo.restantes}
+            </span>
+          ) : (
+            <span className="label-mono text-mute">
+              Quedan {restantes} por resolver. Se hace solo con cada captura;
+              esto solo lo adelanta.
             </span>
           )}
         </div>

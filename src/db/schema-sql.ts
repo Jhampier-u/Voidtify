@@ -146,6 +146,22 @@ export const SCHEMA_SQL = `
   -- Un track_uri a NULL significa "buscado y no encontrado": guardar tambien
   -- los fallos evita repetir la misma busqueda infructuosa en cada visita.
   -- Sin acentos graves aqui dentro: cerrarian la plantilla de cadena.
+  -- Popularidad del artista segun Last.fm. Va en tabla aparte y no como dos
+  -- columnas mas de artist_genres porque este DDL solo sabe crear tablas que
+  -- falten, sin ALTER: anadir columnas a una que ya existe no llegaria a las
+  -- bases instaladas, mientras que una tabla nueva si se crea sola. Ademas
+  -- caducan distinto: las etiquetas casi no cambian y estas cifras suben cada
+  -- dia.
+  --
+  -- Ojo al redactar aqui: el test de paridad cuenta las apariciones de la
+  -- sentencia de creacion en todo el fichero, comentarios incluidos.
+  CREATE TABLE IF NOT EXISTS artist_stats (
+    artist_key TEXT PRIMARY KEY,
+    listeners  INTEGER,
+    playcount  INTEGER,
+    fetched_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS lastfm_resolucion (
     clave      TEXT PRIMARY KEY,
     track_uri  TEXT,

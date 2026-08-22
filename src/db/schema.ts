@@ -206,6 +206,23 @@ export const artistGenres = sqliteTable("artist_genres", {
 });
 
 /**
+ * Popularidad del artista segun Last.fm.
+ *
+ * Sustituye al `popularity` que Spotify retiro de sus objetos de artista.
+ * Tabla aparte y no dos columnas mas en `artistGenres`: el esquema se aplica
+ * con CREATE TABLE IF NOT EXISTS y no hay ALTER, asi que anadir columnas no
+ * llegaria a las bases ya instaladas.
+ */
+export const artistStats = sqliteTable("artist_stats", {
+  artistKey: text("artist_key").primaryKey(),
+  listeners: integer("listeners"),
+  playcount: integer("playcount"),
+  fetchedAt: integer("fetched_at").notNull(),
+});
+
+export type ArtistStatsRow = typeof artistStats.$inferSelect;
+
+/**
  * Cache de la busqueda de un tema de Last.fm en el catalogo de Spotify.
  *
  * `trackUri` a null significa "buscado y no encontrado". Guardar tambien los

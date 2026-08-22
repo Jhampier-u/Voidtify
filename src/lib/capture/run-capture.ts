@@ -10,6 +10,7 @@ import {
   type RecentlyPlayedResponse,
 } from "./map-recently-played";
 import { capturarTopsSiToca } from "./top-snapshots";
+import { rellenarGenerosEnLote } from "./rellenar-generos";
 
 const FILA = 1;
 const LIMITE = 50;
@@ -22,6 +23,8 @@ export type CaptureResult = {
   inserted: number;
   fetched: number;
   snapshots: number;
+  /** Artistas resueltos contra Last.fm en esta pasada. */
+  generos: number;
   message?: string;
 };
 
@@ -78,6 +81,7 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
         inserted: 0,
         fetched: 0,
         snapshots: 0,
+        generos: 0,
         message: "Otra ejecución acaba de correr.",
       };
     }
@@ -102,6 +106,17 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
       snapshots = await capturarTopsSiToca();
     } catch (e) {
       console.warn("[captura] no se pudieron guardar los tops", e);
+    }
+
+    // El vocabulario de generos se rellena aqui, un lote pequeno cada vez.
+    // Antes dependia de que alguien abriera /ajustes y pulsara un boton unas
+    // doscientas sesenta veces: a las dos semanas habia 40 artistas resueltos
+    // de 10.680. Un fallo aqui tampoco debe tumbar la captura de escuchas.
+    let generos = 0;
+    try {
+      generos = (await rellenarGenerosEnLote(db)).pedidos;
+    } catch (e) {
+      console.warn("[captura] no se pudieron rellenar generos", e);
     }
 
     const maxTs = filas.reduce((max, f) => (f.ts > max ? f.ts : max), 0);
@@ -133,6 +148,7 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
       inserted,
       fetched: items.length,
       snapshots,
+      generos,
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -143,7 +159,14 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
     } catch (e2) {
       console.error("[captura] no se pudo registrar el error", e2);
     }
-    return { status: "error", inserted: 0, fetched: 0, snapshots: 0, message };
+    return {
+      status: "error",
+      inserted: 0,
+      fetched: 0,
+      snapshots: 0,
+      generos: 0,
+      message,
+    };
   }
 }
 

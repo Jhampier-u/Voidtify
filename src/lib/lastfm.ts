@@ -12,10 +12,27 @@ type LastfmArtistInfoResponse = {
     name: string;
     // Last.fm devuelve un array con varios tags, pero un objeto con uno solo.
     tags?: { tag?: LastfmTag | LastfmTag[] };
+    // Las cifras llegan como cadenas.
+    stats?: { listeners?: string; playcount?: string };
   };
   error?: number;
   message?: string;
 };
+
+export type ArtistInfo = {
+  tags: string[];
+  /** Oyentes en Last.fm, o null si no vinieron. */
+  listeners: number | null;
+  playcount: number | null;
+};
+
+const SIN_INFO: ArtistInfo = { tags: [], listeners: null, playcount: null };
+
+function aNumero(v: string | undefined): number | null {
+  if (v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 
 /**
  * Fetches top tags for an artist from Last.fm. Returns lowercase tag names.
@@ -23,7 +40,14 @@ type LastfmArtistInfoResponse = {
  */
 let warnedMissingKey = false;
 
-export async function getArtistTagsByName(name: string): Promise<string[]> {
+/**
+ * Etiquetas y popularidad de un artista, en una sola llamada.
+ *
+ * `listeners` y `playcount` sustituyen al `popularity` que Spotify retiro de
+ * sus objetos de artista. Vienen en la misma respuesta que las etiquetas, asi
+ * que pedirlos no cuesta ni una peticion mas.
+ */
+export async function getArtistInfo(name: string): Promise<ArtistInfo> {
   const apiKey = process.env.LASTFM_API_KEY;
   if (!apiKey) {
     if (!warnedMissingKey) {
@@ -32,9 +56,9 @@ export async function getArtistTagsByName(name: string): Promise<string[]> {
       );
       warnedMissingKey = true;
     }
-    return [];
+    return SIN_INFO;
   }
-  if (!name?.trim()) return [];
+  if (!name?.trim()) return SIN_INFO;
 
   const params = new URLSearchParams({
     method: "artist.getInfo",
@@ -52,26 +76,35 @@ export async function getArtistTagsByName(name: string): Promise<string[]> {
     });
     if (!res.ok) {
       console.warn(`[lastfm] HTTP ${res.status} for "${name}"`);
-      return [];
+      return SIN_INFO;
     }
     const data = (await res.json()) as LastfmArtistInfoResponse;
     if (data.error) {
       console.warn(
         `[lastfm] error ${data.error} for "${name}": ${data.message ?? ""}`,
       );
-      return [];
+      return SIN_INFO;
     }
     // Normaliza la forma array-u-objeto para que `.slice` nunca lance.
     const raw = data.artist?.tags?.tag;
     const tags = Array.isArray(raw) ? raw : raw ? [raw] : [];
-    return tags
-      .slice(0, MAX_TAGS_PER_ARTIST)
-      .map((t) => t?.name?.toLowerCase().trim() ?? "")
-      .filter((t) => t.length > 0 && !GENERIC_TAGS.has(t));
+    return {
+      tags: tags
+        .slice(0, MAX_TAGS_PER_ARTIST)
+        .map((t) => t?.name?.toLowerCase().trim() ?? "")
+        .filter((t) => t.length > 0 && !GENERIC_TAGS.has(t)),
+      listeners: aNumero(data.artist?.stats?.listeners),
+      playcount: aNumero(data.artist?.stats?.playcount),
+    };
   } catch (e) {
     console.warn(`[lastfm] exception for "${name}":`, e);
-    return [];
+    return SIN_INFO;
   }
+}
+
+/** Solo las etiquetas. Se conserva porque es lo que usan los consumidores ya escritos. */
+export async function getArtistTagsByName(name: string): Promise<string[]> {
+  return (await getArtistInfo(name)).tags;
 }
 
 // Last.fm has many noisy tags. Filter the most useless.

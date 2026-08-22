@@ -236,6 +236,26 @@ Misma ruta y mismo código en ambos entornos.
 último error. Avisa si la captura lleva más de dos horas sin correr o si
 detecta un posible hueco.
 
+### Qué más hace cada captura
+
+Además de traer las escuchas recientes, cada pasada resuelve **veinte artistas
+contra Last.fm** —los más escuchados primero— para rellenar el vocabulario de
+géneros, y guarda sus oyentes y reproducciones, que sustituyen al `popularity`
+que Spotify retiró de sus objetos de artista.
+
+Con una captura cada veinte minutos son unos 1.400 artistas al día. Antes esto
+dependía de abrir una pantalla y pulsar un botón por lotes: a las dos semanas
+había 40 artistas resueltos de 10.680. El botón sigue estando, pero solo
+adelanta trabajo.
+
+Las etiquetas se releen a los 90 días. Un fallo aquí no tumba la captura de
+escuchas, que es lo urgente.
+
+> **Al añadir una tabla al esquema hay que reiniciar el servidor.** El DDL se
+> aplica al abrir la conexión, y esa conexión es un singleton que vive lo que
+> viva el proceso. Sin reiniciar, la tabla nueva no existe y las consultas
+> fallan con `no such table`.
+
 ### Por qué cada 20 minutos
 
 La ventana de la API son 50 pistas, unas 2,5–3 h de escucha continua. Veinte
