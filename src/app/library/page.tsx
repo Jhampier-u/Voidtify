@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -130,12 +131,12 @@ function TrackRow({
       </span>
       <div className="w-10 h-10 bg-ink-3 ring-1 ring-rule overflow-hidden">
         {art && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={art}
             alt=""
-            loading="lazy"
-            className="w-full h-full object-cover"
+            fill
+            sizes="(min-width:1024px) 20vw, (min-width:640px) 33vw, 50vw"
+            className="object-cover"
           />
         )}
       </div>

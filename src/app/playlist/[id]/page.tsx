@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -199,11 +200,13 @@ function DetailHeader({
         <div className="col-span-12 md:col-span-4 lg:col-span-3 fade-in">
           <div className="aspect-square relative bg-ink-2 ring-1 ring-rule overflow-hidden">
             {cover ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={cover}
                 alt=""
-                className="w-full h-full object-cover"
+                fill
+                priority
+                sizes="(min-width:768px) 33vw, 100vw"
+                className="object-cover"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center display-italic text-7xl text-mute">

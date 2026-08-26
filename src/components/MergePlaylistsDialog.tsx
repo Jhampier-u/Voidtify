@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState, useTransition } from "react";
 import { mergePlaylists } from "@/lib/spotify-actions";
 import type { SpotifyPlaylist } from "@/lib/spotify";
@@ -179,11 +180,12 @@ function Dialog({
                     </span>
                     <div className="w-9 h-9 bg-ink-3 ring-1 ring-rule overflow-hidden shrink-0">
                       {p.images?.[0]?.url && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
                           src={p.images[0].url}
                           alt=""
-                          className="w-full h-full object-cover"
+                          width={72}
+                          height={72}
+                          className="h-full w-full object-cover"
                         />
                       )}
                     </div>

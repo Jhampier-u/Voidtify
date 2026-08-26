@@ -1,4 +1,5 @@
 
+import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "@/auth";
 import type { SpotifyUser } from "@/lib/spotify";
@@ -64,11 +65,12 @@ export default function TopBar({
       <div className="flex items-center gap-5">
         <div className="hidden md:flex items-center gap-3">
           {me.images?.[0]?.url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={me.images[0].url}
               alt=""
-              className="w-7 h-7 rounded-full object-cover ring-1 ring-rule"
+              width={56}
+              height={56}
+              className="h-7 w-7 rounded-full object-cover ring-1 ring-rule"
             />
           ) : (
             <div className="w-7 h-7 rounded-full bg-ink-3" />

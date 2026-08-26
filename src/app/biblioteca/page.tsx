@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { auth, signIn, signOut } from "@/auth";
 import {
@@ -69,7 +70,7 @@ function LoginScreen() {
       </header>
 
       <section className="flex-1 grid lg:grid-cols-12 gap-12 px-8 py-16 lg:py-24">
-        <div className="lg:col-span-7 lg:col-start-2 flex flex-col justify-center fade-in">
+        <div className="lg:col-span-7 lg:col-start-2 flex flex-col justify-center rise">
           <p className="label-mono text-acid mb-8">
             № 01 — Una nueva forma de mirar tu música
           </p>
@@ -273,11 +274,16 @@ function Featured({ playlist }: { playlist: SpotifyPlaylist }) {
         >
           <div className="relative aspect-square overflow-hidden ring-1 ring-rule">
             {cover ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              // La destacada es lo primero que se ve, asi que se pide con
+              // prioridad: es la imagen que decide cuanto tarda la pagina en
+              // parecer completa.
+              <Image
                 src={cover}
                 alt=""
-                className="w-full h-full object-cover saturate-[0.7] group-hover:saturate-100 group-hover:scale-[1.02] transition-all duration-700 ease-out"
+                fill
+                priority
+                sizes="(min-width:1024px) 33vw, (min-width:768px) 42vw, 100vw"
+                className="object-cover saturate-[0.7] group-hover:saturate-100 group-hover:scale-[1.02] transition-all duration-700 ease-out"
               />
             ) : (
               <div className="w-full h-full bg-ink-2 flex items-center justify-center">
@@ -404,7 +410,7 @@ function EditorialHeader({ total }: { total: number }) {
   return (
     <section className="px-8 py-16 lg:py-24 hairline-b">
       <div className="grid grid-cols-12 gap-6 items-end">
-        <div className="col-span-12 lg:col-span-8 fade-in">
+        <div className="col-span-12 lg:col-span-8 rise">
           <p className="label-mono text-acid mb-6">
             Volumen 01 — Índice de la biblioteca
           </p>
@@ -419,7 +425,7 @@ function EditorialHeader({ total }: { total: number }) {
           </p>
         </div>
 
-        <div className="col-span-12 lg:col-span-4 flex flex-col items-end justify-end fade-in">
+        <div className="col-span-12 lg:col-span-4 flex flex-col items-end justify-end rise">
           <p className="label-mono text-mute mb-2">Entradas totales</p>
           <p
             className="display num-tabular text-[clamp(6rem,18vw,15rem)] text-acid leading-none"
@@ -466,7 +472,7 @@ function Stats({
             <p className="display num-tabular text-5xl md:text-6xl text-cream tracking-tight">
               {c.value.toLocaleString("es")}
             </p>
-            <p className="label-mono text-mute mt-3 normal-case tracking-normal text-[11px]">
+            <p className="dato-mono text-mute mt-3">
               {c.hint}
             </p>
           </div>
@@ -517,12 +523,15 @@ function PlaylistCard({
       <Link href={`/playlist/${playlist.id}`} className="block">
         <div className="relative aspect-square overflow-hidden bg-ink-2 ring-1 ring-rule">
           {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            // `sizes` importa aqui mas que en ningun otro sitio: la rejilla va
+            // de dos a seis columnas, y sin esta pista Next serviria la imagen
+            // para el ancho mayor. Son 380 tarjetas a 41 KB de media.
+            <Image
               src={cover}
               alt=""
-              loading="lazy"
-              className="w-full h-full object-cover saturate-[0.55] group-hover:saturate-100 group-hover:scale-[1.04] transition-all duration-500 ease-out"
+              fill
+              sizes="(min-width:1280px) 16vw, (min-width:1024px) 20vw, (min-width:768px) 25vw, (min-width:640px) 33vw, 50vw"
+              className="object-cover saturate-[0.55] group-hover:saturate-100 group-hover:scale-[1.04] transition-all duration-500 ease-out"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -539,10 +548,7 @@ function PlaylistCard({
           {/* Hover overlay with meta */}
           <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-ink/90 via-ink/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           <div className="absolute bottom-2 left-2 right-2 flex items-end justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
-            <span className="label-mono text-acid num-tabular">
-              {tracks.toLocaleString("es")} TR
-            </span>
-            <span className="label-mono text-cream">ABRIR ↗</span>
+            <span className="label-mono text-cream">Abrir ↗</span>
           </div>
         </div>
 
@@ -553,10 +559,11 @@ function PlaylistCard({
             </span>
           </h3>
           <div className="mt-2 flex items-center justify-between label-mono text-mute">
-            <span className="num-tabular text-cream-dim">
-              {tracks.toLocaleString("es")} TR
+            <span className="dato-mono text-cream-dim">
+              {tracks.toLocaleString("es")}{" "}
+              {tracks === 1 ? "canción" : "canciones"}
             </span>
-            <span className="truncate ml-3 normal-case tracking-normal font-mono text-[10px]">
+            <span className="dato-mono truncate ml-3">
               {owner}
             </span>
           </div>
