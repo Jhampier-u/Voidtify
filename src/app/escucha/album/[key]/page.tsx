@@ -9,6 +9,7 @@ import { getAlbumDetail } from "@/lib/stats/detail";
 import TopBar from "@/components/TopBar";
 import RangePicker from "@/components/stats/RangePicker";
 import EntityHeader from "@/components/stats/EntityHeader";
+import { getCaratulas } from "@/lib/stats/imagenes";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,8 @@ export default async function FichaAlbum({
 
   if (!ficha) notFound();
 
+  const caratulas = await getCaratulas(db, "album", [decodeURIComponent(key)]);
+
   const horas = ficha.ms / 3_600_000;
   const max = Math.max(1, ...ficha.tracks.map((t) => t.plays));
 
@@ -66,6 +69,7 @@ export default async function FichaAlbum({
         titulo={ficha.name}
         subtitulo={ficha.artistName}
         subtituloHref={`/escucha/artista/${encodeURIComponent(ficha.artistKey)}`}
+        imagen={caratulas[decodeURIComponent(key)]}
         tiles={[
           { label: "Reproducciones", valor: ficha.plays.toLocaleString("es") },
           {

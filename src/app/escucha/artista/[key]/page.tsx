@@ -7,6 +7,9 @@ import { parseRange } from "@/lib/stats/range";
 import { resolveTimeZone } from "@/lib/stats/local-time";
 import { getArtistDetail } from "@/lib/stats/detail";
 import TopBar from "@/components/TopBar";
+import Miniatura from "@/components/stats/Miniatura";
+import { getImagenesDeArtistas, getCaratulas } from "@/lib/stats/imagenes";
+import { duracion } from "@/lib/formato";
 import RangePicker from "@/components/stats/RangePicker";
 
 export const dynamic = "force-dynamic";
@@ -39,12 +42,20 @@ export default async function FichaArtista({
   const timeZone = resolveTimeZone(process.env);
   const range = parseRange(sp, ahoraMs(), timeZone);
 
+  const clave = decodeURIComponent(key);
   const [me, ficha] = await Promise.all([
     getMe(),
-    getArtistDetail(db, range, decodeURIComponent(key)),
+    getArtistDetail(db, range, clave),
   ]);
 
   if (!ficha) notFound();
+
+  // Depende de la ficha, asi que va despues: solo hacen falta la foto de este
+  // artista y las caratulas de las canciones que se van a pintar.
+  const [imagenes, caratulas] = await Promise.all([
+    getImagenesDeArtistas(db, [clave]),
+    getCaratulas(db, "cancion", ficha.topTracks.map((t) => t.key)),
+  ]);
 
   const minutos = Math.round(ficha.ms / 60000);
   const horas = ficha.ms / 3_600_000;
@@ -65,16 +76,37 @@ export default async function FichaArtista({
         </Link>
       </section>
 
-      <section className="px-8 pt-16 pb-12 hairline-b">
-        <p className="label-mono text-acid mb-6">
-          {posicion} en tu ranking · {range.label}
-        </p>
-        <h1
-          className="display-italic text-[clamp(2.6rem,9vw,7rem)] leading-[0.9] break-words"
-          style={{ fontVariationSettings: '"opsz" 144, "SOFT" 0, "WONK" 1' }}
-        >
-          {ficha.name}
-        </h1>
+      <section className="relative overflow-hidden px-8 pt-16 pb-12 hairline-b">
+        {/* Halo del color de la marca detras de la foto: da profundidad sin
+            recurrir a una sombra, que sobre un fondo casi negro no se ve. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -left-24 -top-24 h-96 w-96
+                     rounded-full bg-acid/[0.05] blur-3xl"
+        />
+
+        <div className="relative flex items-end gap-8 flex-wrap">
+          <div className="rise">
+            <Miniatura
+              nombre={ficha.name}
+              url={imagenes[clave]}
+              lado={168}
+              redondeo="rounded-3xl"
+            />
+          </div>
+
+          <div className="min-w-0 flex-1 rise" style={{ animationDelay: "80ms" }}>
+            <p className="label-mono text-acid mb-5">
+              {posicion} en tu ranking · {range.label}
+            </p>
+            <h1
+              className="display-italic text-[clamp(2.4rem,7vw,5.5rem)] leading-[0.9] break-words"
+              style={{ fontVariationSettings: '"opsz" 144, "SOFT" 0, "WONK" 1' }}
+            >
+              {ficha.name}
+            </h1>
+          </div>
+        </div>
       </section>
 
       <section className="hairline-b">
@@ -111,26 +143,41 @@ export default async function FichaArtista({
           {ficha.topTracks.map((t, i) => (
             <li
               key={t.key}
-              className="relative flex items-baseline justify-between gap-4 px-2 py-2.5 hairline-b overflow-hidden rise"
+              className="group relative flex items-center justify-between gap-3 overflow-hidden rounded-xl px-2 py-1.5 rise transition-[transform,background-color] duration-200 ease-out hover:translate-x-1 hover:bg-ink-2/50"
               style={{ animationDelay: `${i * 40}ms` }}
             >
               <span
                 aria-hidden
-                className="absolute inset-y-0 left-0 bg-acid/10"
+                className="absolute inset-y-1 left-0 rounded-r-full opacity-70
+                           bg-gradient-to-r from-acid/25 via-acid/12 to-acid/[0.03]
+                           transition-opacity duration-200 group-hover:opacity-100"
                 style={{ width: `${(t.plays / maxTrack) * 100}%` }}
               />
-              <span className="relative flex items-baseline gap-3 min-w-0">
+
+              <span className="relative flex items-center gap-3 min-w-0">
                 <span
-                  className={`label-mono num-tabular ${
+                  className={`label-mono num-tabular w-6 shrink-0 ${
                     i === 0 ? "text-acid" : "text-mute"
                   }`}
                 >
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <span className="truncate">{t.name}</span>
+                <Miniatura nombre={t.name} url={caratulas[t.key]} lado={38} />
+                <Link
+                  href={`/escucha/cancion/${encodeURIComponent(t.key)}`}
+                  className="truncate transition-colors duration-200 hover:text-acid"
+                >
+                  {t.name}
+                </Link>
               </span>
-              <span className="relative label-mono text-mute num-tabular">
-                {t.plays.toLocaleString("es")}
+
+              <span className="relative shrink-0 text-right">
+                <span className="block num-tabular font-mono text-sm text-cream-dim">
+                  {t.plays.toLocaleString("es")}
+                </span>
+                <span className="block num-tabular font-mono text-[11px] text-mute">
+                  {duracion(t.ms)}
+                </span>
               </span>
             </li>
           ))}

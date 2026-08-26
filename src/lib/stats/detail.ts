@@ -4,7 +4,13 @@ import type { StatsRange } from "./range";
 import { contadas, enRango, type Db } from "./shared";
 import { getTopArtists, getTopTracks, getTopAlbums } from "./tops";
 
-export type ArtistTrack = { key: string; name: string; plays: number };
+export type ArtistTrack = {
+  key: string;
+  name: string;
+  plays: number;
+  /** Tiempo escuchado. Sin filtrar por umbral, como en el resto. */
+  ms: number;
+};
 
 export type ArtistDetail = {
   key: string;
@@ -55,7 +61,8 @@ export async function getArtistDetail(
     SELECT
       ${streams.trackKey}       AS key,
       MAX(${streams.trackName}) AS name,
-      COUNT(*)                  AS plays
+      COUNT(*)                  AS plays,
+      SUM(${streams.msPlayed})  AS ms
     FROM ${streams}
     WHERE ${enRango(range)} AND ${contadas()}
       AND ${streams.artistKey} = ${artistKey}

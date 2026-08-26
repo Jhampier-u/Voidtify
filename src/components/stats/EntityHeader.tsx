@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Miniatura from "./Miniatura";
 
 type Tile = { label: string; valor: string };
 
@@ -15,6 +16,7 @@ export default function EntityHeader({
   titulo,
   subtitulo,
   subtituloHref,
+  imagen,
   tiles,
 }: {
   posicion: number | null;
@@ -22,6 +24,8 @@ export default function EntityHeader({
   titulo: string;
   subtitulo?: string;
   subtituloHref?: string;
+  /** Carátula o foto. Si falta, la miniatura pone las iniciales. */
+  imagen?: string;
   tiles: Tile[];
 }) {
   // La consulta de ranking mira los 1000 primeros; más allá no se conoce.
@@ -29,32 +33,53 @@ export default function EntityHeader({
 
   return (
     <>
-      <section className="px-8 pt-16 pb-12 hairline-b">
-        <p className="label-mono text-acid mb-6">
-          {puesto} en tu ranking · {contexto}
-        </p>
+      <section className="relative overflow-hidden px-8 pt-16 pb-12 hairline-b">
+        {/* Halo detras de la caratula: da profundidad sin recurrir a una
+            sombra, que sobre un fondo casi negro no se ve. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -left-24 -top-24 h-96 w-96
+                     rounded-full bg-acid/[0.05] blur-3xl"
+        />
 
-        <h1
-          className="display-italic text-[clamp(2.4rem,8vw,6rem)] leading-[0.9] break-words"
-          style={{ fontVariationSettings: '"opsz" 144, "SOFT" 0, "WONK" 1' }}
-        >
-          {titulo}
-        </h1>
+        <div className="relative flex items-end gap-8 flex-wrap">
+          <div className="rise">
+            <Miniatura
+              nombre={titulo}
+              url={imagen}
+              lado={168}
+              redondeo="rounded-3xl"
+            />
+          </div>
 
-        {subtitulo && (
-          <p className="font-serif italic text-xl text-cream-dim mt-5">
-            {subtituloHref ? (
-              <Link
-                href={subtituloHref}
-                className="hover:text-acid transition-colors"
-              >
-                {subtitulo}
-              </Link>
-            ) : (
-              subtitulo
+          <div className="min-w-0 flex-1 rise" style={{ animationDelay: "80ms" }}>
+            <p className="label-mono text-acid mb-5">
+              {puesto} en tu ranking · {contexto}
+            </p>
+
+            <h1
+              className="display-italic text-[clamp(2.2rem,6vw,4.5rem)] leading-[0.9] break-words"
+              style={{ fontVariationSettings: '"opsz" 144, "SOFT" 0, "WONK" 1' }}
+            >
+              {titulo}
+            </h1>
+
+            {subtitulo && (
+              <p className="font-serif italic text-xl text-cream-dim mt-4">
+                {subtituloHref ? (
+                  <Link
+                    href={subtituloHref}
+                    className="hover:text-acid transition-colors"
+                  >
+                    {subtitulo}
+                  </Link>
+                ) : (
+                  subtitulo
+                )}
+              </p>
             )}
-          </p>
-        )}
+          </div>
+        </div>
       </section>
 
       <section className="hairline-b">

@@ -9,6 +9,7 @@ import { getTrackDetail } from "@/lib/stats/detail";
 import TopBar from "@/components/TopBar";
 import RangePicker from "@/components/stats/RangePicker";
 import EntityHeader from "@/components/stats/EntityHeader";
+import { getCaratulas } from "@/lib/stats/imagenes";
 import EvolucionChart from "@/components/stats/EvolucionChart";
 import { construirSerie } from "@/lib/stats/serie";
 
@@ -48,6 +49,8 @@ export default async function FichaCancion({
 
   if (!ficha) notFound();
 
+  const caratulas = await getCaratulas(db, "cancion", [decodeURIComponent(key)]);
+
   const horas = ficha.ms / 3_600_000;
 
   return (
@@ -67,6 +70,7 @@ export default async function FichaCancion({
         titulo={ficha.name}
         subtitulo={ficha.artistName}
         subtituloHref={`/escucha/artista/${encodeURIComponent(ficha.artistKey)}`}
+        imagen={caratulas[decodeURIComponent(key)]}
         tiles={[
           { label: "Reproducciones", valor: ficha.plays.toLocaleString("es") },
           {
