@@ -206,6 +206,23 @@ export const artistGenres = sqliteTable("artist_genres", {
 });
 
 /**
+ * Foto del artista, resuelta por nombre contra el buscador de Spotify.
+ *
+ * `spotifyId` a null significa "buscado y no encontrado". Se guarda el id
+ * ademas de la url porque las urls del CDN caducan: desde el id se vuelve a
+ * pedir la foto sin repetir la busqueda por nombre, que es la parte cara y la
+ * que puede equivocarse de artista.
+ */
+export const artistImagen = sqliteTable("artist_imagen", {
+  artistKey: text("artist_key").primaryKey(),
+  spotifyId: text("spotify_id"),
+  url: text("url"),
+  fetchedAt: integer("fetched_at").notNull(),
+});
+
+export type ArtistImagenRow = typeof artistImagen.$inferSelect;
+
+/**
  * Popularidad del artista segun Last.fm.
  *
  * Sustituye al `popularity` que Spotify retiro de sus objetos de artista.

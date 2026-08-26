@@ -15,6 +15,8 @@ import TopBar from "@/components/TopBar";
 import RangePicker from "@/components/stats/RangePicker";
 import StatTiles from "@/components/stats/StatTiles";
 import TopList from "@/components/stats/TopList";
+import TopArtistas from "@/components/stats/TopArtistas";
+import { getImagenesDeArtistas } from "@/lib/stats/imagenes";
 import HourClock from "@/components/stats/HourClock";
 import WeekdayBars from "@/components/stats/WeekdayBars";
 import MonthlyChart from "@/components/stats/MonthlyChart";
@@ -86,6 +88,13 @@ export default async function Portada({
     getMostSkippedArtists(db, range),
     getGenreBreakdown(db, range),
   ]);
+
+  // Depende de los tops, asi que va despues del Promise.all y no dentro: solo
+  // hacen falta las fotos de los diez que se van a pintar.
+  const imagenesArtistas = await getImagenesDeArtistas(
+    db,
+    artistas.map((a) => a.key),
+  );
 
   const minutos = Math.round(totals.msTotal / 60000);
   const vacio = totals.reproducciones === 0;
@@ -181,12 +190,14 @@ export default async function Portada({
               ¿Y qué cree Spotify? →
             </Link>
           </section>
-          <section className="px-8 pb-12 hairline-b grid grid-cols-1 lg:grid-cols-3 gap-10">
-            <TopList
-              titulo="Artistas"
+          {/* Artistas manda: columna mas ancha y con fotos. Tres columnas del
+              mismo peso hacian que la seccion se leyera como una tabla en vez
+              de como un top, y el ojo no sabia por donde entrar. */}
+          <section className="px-8 pb-12 hairline-b grid grid-cols-1 gap-10 lg:grid-cols-[1.5fr_1fr_1fr]">
+            <TopArtistas
               entradas={artistas}
+              imagenes={imagenesArtistas}
               vacio="Nada en este rango."
-              hrefBase="/escucha/artista"
             />
             <TopList
               titulo="Canciones"

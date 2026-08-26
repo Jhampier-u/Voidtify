@@ -11,6 +11,10 @@ import {
 } from "./map-recently-played";
 import { capturarTopsSiToca } from "./top-snapshots";
 import { rellenarGenerosEnLote } from "./rellenar-generos";
+import {
+  rellenarImagenesEnLote,
+  type ArtistaSpotify,
+} from "./rellenar-imagenes";
 
 const FILA = 1;
 const LIMITE = 50;
@@ -25,6 +29,8 @@ export type CaptureResult = {
   snapshots: number;
   /** Artistas resueltos contra Last.fm en esta pasada. */
   generos: number;
+  /** Fotos de artista resueltas en esta pasada. */
+  imagenes: number;
   message?: string;
 };
 
@@ -67,6 +73,15 @@ async function guardarEstado(campos: {
  * "ejecutar ahora" es una acción deliberada del usuario y debe responder
  * siempre.
  */
+/** Busca un artista por nombre con el cliente sin cookie del cron. */
+async function buscarArtista(nombre: string): Promise<ArtistaSpotify[]> {
+  const q = encodeURIComponent(nombre);
+  const r = await spotifyFetchHeadless<{
+    artists?: { items?: ArtistaSpotify[] };
+  }>(`/search?q=${q}&type=artist&limit=5`, { cache: "no-store" });
+  return r.artists?.items ?? [];
+}
+
 export async function runCapture(manual = false): Promise<CaptureResult> {
   try {
     const estado = await leerEstado();
@@ -82,6 +97,7 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
         fetched: 0,
         snapshots: 0,
         generos: 0,
+        imagenes: 0,
         message: "Otra ejecución acaba de correr.",
       };
     }
@@ -119,6 +135,15 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
       console.warn("[captura] no se pudieron rellenar generos", e);
     }
 
+    // Las fotos de artista, por el mismo camino y con el mismo criterio: los
+    // mas escuchados primero, porque son los que salen en pantalla.
+    let imagenes = 0;
+    try {
+      imagenes = (await rellenarImagenesEnLote(db, buscarArtista)).conFoto;
+    } catch (e) {
+      console.warn("[captura] no se pudieron rellenar imagenes", e);
+    }
+
     const maxTs = filas.reduce((max, f) => (f.ts > max ? f.ts : max), 0);
     const nuevoCursor = maxTs > 0 ? maxTs : (estado?.lastPlayedAt ?? null);
 
@@ -149,6 +174,7 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
       fetched: items.length,
       snapshots,
       generos,
+      imagenes,
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -165,6 +191,7 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
       fetched: 0,
       snapshots: 0,
       generos: 0,
+      imagenes: 0,
       message,
     };
   }

@@ -20,12 +20,14 @@ export const POR_CAPTURA = 20;
 export const MAX_EDAD_MS = 90 * 86_400_000;
 
 /**
- * Artistas que hace falta consultar, los más escuchados primero.
+ * Artistas que hace falta consultar, priorizando los que suenan ahora.
  *
  * Entran los que no se han consultado nunca y los que se consultaron hace más
- * de `maxEdadMs`. El orden por reproducciones importa: el reparto de géneros
- * lo dominan los artistas que más suenan, así que resolverlos antes hace que
- * la pantalla sea útil desde el primer día en vez de al terminar del todo.
+ * de `maxEdadMs`. Manda la actividad reciente y el total desempata: las
+ * pantallas muestran por defecto las últimas cuatro semanas, y ordenar solo por
+ * el histórico llenaba la caché con artistas que no están en pantalla. Se vio
+ * al montar las fotos, donde el efecto era descarado — ninguno de los diez
+ * visibles tenía foto pese a haber quince resueltos.
  */
 export function getArtistasParaRefrescar(
   db: Db,
@@ -34,6 +36,7 @@ export function getArtistasParaRefrescar(
   maxEdadMs: number = MAX_EDAD_MS,
 ): ArtistaPendiente[] {
   const corte = ahoraMs - maxEdadMs;
+  const desde = new Date(ahoraMs - 90 * 86_400_000).toISOString().slice(0, 10);
 
   return db.all<ArtistaPendiente>(sql`
     SELECT
@@ -44,7 +47,9 @@ export function getArtistasParaRefrescar(
     WHERE ${contadas()}
       AND (${artistGenres.artistKey} IS NULL OR ${artistGenres.fetchedAt} < ${corte})
     GROUP BY ${streams.artistKey}
-    ORDER BY COUNT(*) DESC
+    ORDER BY
+      SUM(CASE WHEN ${streams.localDate} >= ${desde} THEN 1 ELSE 0 END) DESC,
+      COUNT(*) DESC
     LIMIT ${limite}
   `);
 }

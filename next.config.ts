@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
+
+  images: {
+    // Las fotos de artista y las caratulas viven en el CDN de Spotify. Sin
+    // declararlo, `next/image` rechaza la url y no se ve nada.
+    remotePatterns: [{ protocol: "https", hostname: "i.scdn.co" }],
+  },
 };
 
 export default nextConfig;

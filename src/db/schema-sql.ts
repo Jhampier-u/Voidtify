@@ -162,6 +162,18 @@ export const SCHEMA_SQL = `
     fetched_at INTEGER NOT NULL
   );
 
+  -- Foto del artista, resuelta por nombre contra el buscador de Spotify.
+  -- Un spotify_id a NULL significa "buscado y no encontrado". Se guarda el id
+  -- ademas de la url porque las urls del CDN caducan y desde el id se vuelve a
+  -- pedir la foto sin repetir la busqueda.
+  -- (Sin acentos graves aqui dentro: cerrarian la plantilla de cadena.)
+  CREATE TABLE IF NOT EXISTS artist_imagen (
+    artist_key TEXT PRIMARY KEY,
+    spotify_id TEXT,
+    url        TEXT,
+    fetched_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS lastfm_resolucion (
     clave      TEXT PRIMARY KEY,
     track_uri  TEXT,
