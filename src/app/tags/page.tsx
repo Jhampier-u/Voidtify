@@ -43,7 +43,7 @@ function Header({
   return (
     <section className="px-8 py-16 lg:py-20 hairline-b">
       <div className="grid grid-cols-12 gap-6 items-end">
-        <div className="col-span-12 lg:col-span-8 fade-in">
+        <div className="col-span-12 lg:col-span-8 rise">
           <p className="label-mono text-acid mb-6">
             Volumen 05 — Tu vocabulario
           </p>
@@ -56,7 +56,7 @@ function Header({
           </p>
         </div>
 
-        <div className="col-span-12 lg:col-span-4 flex flex-col items-end justify-end fade-in">
+        <div className="col-span-12 lg:col-span-4 flex flex-col items-end justify-end rise">
           <p className="label-mono text-mute mb-2">
             Total · {totalApplications.toLocaleString("es")} aplicaciones
           </p>

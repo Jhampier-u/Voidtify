@@ -197,7 +197,7 @@ function DetailHeader({
   return (
     <section className="px-8 py-12 hairline-b">
       <div className="grid grid-cols-12 gap-8 items-end">
-        <div className="col-span-12 md:col-span-4 lg:col-span-3 fade-in">
+        <div className="col-span-12 md:col-span-4 lg:col-span-3 rise">
           <div className="aspect-square relative bg-ink-2 ring-1 ring-rule overflow-hidden">
             {cover ? (
               <Image
@@ -220,7 +220,7 @@ function DetailHeader({
           </div>
         </div>
 
-        <div className="col-span-12 md:col-span-8 lg:col-span-9 fade-in">
+        <div className="col-span-12 md:col-span-8 lg:col-span-9 rise">
           <p className="label-mono text-acid mb-4">
             Por {playlist.owner.display_name}
             {ownedByMe && <span className="text-mute"> · TUYA</span>}

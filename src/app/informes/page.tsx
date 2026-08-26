@@ -10,6 +10,8 @@ import {
   type TipoPeriodo,
 } from "@/lib/stats/periodo";
 import TopBar from "@/components/TopBar";
+import Miniatura from "@/components/stats/Miniatura";
+import { getCaratulas, getImagenesDeArtistas } from "@/lib/stats/imagenes";
 
 export const dynamic = "force-dynamic";
 
@@ -66,10 +68,14 @@ function Ranking({
   titulo,
   filas,
   salen,
+  imagenes,
+  hrefBase,
 }: {
   titulo: string;
   filas: FilaComparada[];
   salen: { name: string; posicionAnterior: number }[];
+  imagenes: Record<string, string>;
+  hrefBase: string;
 }) {
   return (
     <section>
@@ -79,22 +85,31 @@ function Ranking({
       ) : (
         <ol>
           {filas.map((f) => (
-            <li
-              key={f.key}
-              className="flex items-baseline justify-between gap-3 py-2 hairline-b"
-            >
-              <span className="flex items-baseline gap-3 min-w-0">
-                <span className="label-mono num-tabular text-mute w-6 shrink-0">
-                  {String(f.posicion).padStart(2, "0")}
+            <li key={f.key}>
+              <Link
+                href={`${hrefBase}/${encodeURIComponent(f.key)}`}
+                className="group flex items-center justify-between gap-3 rounded-xl
+                           px-2 py-1.5 transition-[transform,background-color]
+                           duration-200 ease-out hover:translate-x-1
+                           hover:bg-ink-2/50"
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="label-mono num-tabular w-6 shrink-0 text-mute
+                                   transition-colors duration-200 group-hover:text-cream">
+                    {String(f.posicion).padStart(2, "0")}
+                  </span>
+                  <Miniatura nombre={f.name} url={imagenes[f.key]} lado={34} />
+                  <span className="truncate transition-colors duration-200 group-hover:text-acid">
+                    {f.name}
+                  </span>
                 </span>
-                <span className="truncate">{f.name}</span>
-              </span>
-              <span className="flex items-baseline gap-4 shrink-0">
-                <Movimiento fila={f} />
-                <span className="label-mono num-tabular text-mute">
-                  {f.plays.toLocaleString("es")}
+                <span className="flex shrink-0 items-center gap-4">
+                  <Movimiento fila={f} />
+                  <span className="dato-mono text-mute">
+                    {f.plays.toLocaleString("es")}
+                  </span>
                 </span>
-              </span>
+              </Link>
             </li>
           ))}
         </ol>
@@ -147,6 +162,13 @@ export default async function Informes({
   const periodo =
     sp.periodo && periodos.includes(sp.periodo) ? sp.periodo : periodos[0];
   const inf = await getInforme(db, tipo, periodo);
+
+  // Depende del informe, asi que va despues: solo las de los quince de cada
+  // ranking, no las del periodo entero.
+  const [fotos, caratulas] = await Promise.all([
+    getImagenesDeArtistas(db, inf.artistas.filas.map((f) => f.key)),
+    getCaratulas(db, "cancion", inf.canciones.filas.map((f) => f.key)),
+  ]);
 
   const horas = inf.actual.msTotal / 3_600_000;
   const horasAntes = inf.previo.msTotal / 3_600_000;
@@ -250,11 +272,15 @@ export default async function Informes({
           titulo="Artistas"
           filas={inf.artistas.filas}
           salen={inf.artistas.salen}
+          imagenes={fotos}
+          hrefBase="/escucha/artista"
         />
         <Ranking
           titulo="Canciones"
           filas={inf.canciones.filas}
           salen={inf.canciones.salen}
+          imagenes={caratulas}
+          hrefBase="/escucha/cancion"
         />
       </section>
 

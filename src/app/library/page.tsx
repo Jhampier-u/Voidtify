@@ -80,7 +80,7 @@ function Header({ total }: { total: number }) {
   return (
     <section className="px-8 py-16 lg:py-20 hairline-b">
       <div className="grid grid-cols-12 gap-6 items-end">
-        <div className="col-span-12 lg:col-span-8 fade-in">
+        <div className="col-span-12 lg:col-span-8 rise">
           <p className="label-mono text-acid mb-6">
             Volumen 02 — Tu biblioteca personal
           </p>
@@ -95,7 +95,7 @@ function Header({ total }: { total: number }) {
           </p>
         </div>
 
-        <div className="col-span-12 lg:col-span-4 flex flex-col items-end justify-end fade-in">
+        <div className="col-span-12 lg:col-span-4 flex flex-col items-end justify-end rise">
           <p className="label-mono text-mute mb-2">Canciones guardadas</p>
           <p
             className="display num-tabular text-[clamp(5rem,16vw,13rem)] text-acid leading-none"

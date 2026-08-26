@@ -132,15 +132,6 @@ body::before {
   }
 }
 
-@keyframes fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 @keyframes marquee {
   from {
     transform: translateX(0);
@@ -156,10 +147,6 @@ body::before {
 
 .rise {
   animation: rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.fade-in {
-  animation: fade 1.2s ease-out both;
 }
 
 /* El area del grafico se descubre de izquierda a derecha. Se anima el ancho de
@@ -207,7 +194,6 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .marquee-track,
   .rise,
-  .fade-in,
   .revelar,
   .radio {
     animation: none;
