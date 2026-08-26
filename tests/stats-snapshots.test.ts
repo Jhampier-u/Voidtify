@@ -29,6 +29,21 @@ function guardarSnapshot(
     );
 }
 
+/** Guarda una toma con el payload literal, para probar campos que no son el nombre. */
+function guardarToma(
+  sqlite: Database.Database,
+  entity: string,
+  timeRange: string,
+  takenAt: number,
+  payload: unknown,
+) {
+  sqlite
+    .prepare(
+      "INSERT INTO top_snapshots (taken_at, time_range, entity, payload_json) VALUES (?, ?, ?, ?)",
+    )
+    .run(takenAt, timeRange, entity, JSON.stringify(payload));
+}
+
 function escuchas(artista: string, n: number, localDate = "2026-03-10") {
   return Array.from({ length: n }, () =>
     stream({ localDate, artistName: artista }),
@@ -85,7 +100,7 @@ describe("getContraste", () => {
     guardarSnapshot(sqlite, "artists", "long_term", ["Pixies", "TV Girl"]);
 
     const c = await getContraste(db, "artists", "long_term", HOY);
-    expect(c?.spotify).toEqual(["Pixies", "TV Girl"]);
+    expect(c?.spotify.map((x) => x.name)).toEqual(["Pixies", "TV Girl"]);
   });
 
   it("usa la toma más reciente si hay varias", async () => {
@@ -94,7 +109,7 @@ describe("getContraste", () => {
     guardarSnapshot(sqlite, "artists", "long_term", ["Reciente"], 9000);
 
     const c = await getContraste(db, "artists", "long_term", HOY);
-    expect(c?.spotify).toEqual(["Reciente"]);
+    expect(c?.spotify.map((x) => x.name)).toEqual(["Reciente"]);
     expect(c?.tomadoEl).toBe(9000);
   });
 
@@ -104,10 +119,18 @@ describe("getContraste", () => {
     guardarSnapshot(sqlite, "artists", "short_term", ["Artista corto"]);
     guardarSnapshot(sqlite, "tracks", "long_term", ["Canción larga"]);
 
-    expect((await getContraste(db, "artists", "short_term", HOY))?.spotify).toEqual([
+    expect(
+      (await getContraste(db, "artists", "short_term", HOY))?.spotify.map(
+        (x) => x.name,
+      ),
+    ).toEqual([
       "Artista corto",
     ]);
-    expect((await getContraste(db, "tracks", "long_term", HOY))?.spotify).toEqual([
+    expect(
+      (await getContraste(db, "tracks", "long_term", HOY))?.spotify.map(
+        (x) => x.name,
+      ),
+    ).toEqual([
       "Canción larga",
     ]);
   });
@@ -118,7 +141,7 @@ describe("getContraste", () => {
     seedStreams(sqlite, [...escuchas("Mucho", 5), ...escuchas("Poco", 2)]);
 
     const c = await getContraste(db, "artists", "long_term", HOY);
-    expect(c?.propio).toEqual([
+    expect(c?.propio).toMatchObject([
       { name: "Mucho", plays: 5 },
       { name: "Poco", plays: 2 },
     ]);
@@ -129,7 +152,9 @@ describe("getContraste", () => {
     guardarSnapshot(sqlite, "artists", "long_term", ["x"]);
     seedStreams(sqlite, escuchas("Viejo", 3, "2019-01-01"));
 
-    expect((await getContraste(db, "artists", "long_term", HOY))?.propio).toEqual([
+    expect(
+      (await getContraste(db, "artists", "long_term", HOY))?.propio,
+    ).toMatchObject([
       { name: "Viejo", plays: 3 },
     ]);
   });
@@ -197,8 +222,52 @@ describe("getContraste", () => {
         JSON.stringify({ items: [{ name: "Bueno" }, {}, { name: null }] }),
       );
 
-    expect((await getContraste(db, "artists", "long_term", HOY))?.spotify).toEqual([
+    expect(
+      (await getContraste(db, "artists", "long_term", HOY))?.spotify.map(
+        (x) => x.name,
+      ),
+    ).toEqual([
       "Bueno",
     ]);
+  });
+});
+
+// La imagen sale del propio payload, que guarda el objeto entero tal como lo
+// devolvio Spotify: no cuesta ninguna peticion y es la foto de aquel dia.
+describe("getContraste · imagenes de la toma", () => {
+  it("saca la foto del artista", async () => {
+    const { db, sqlite } = createTestDb();
+    guardarToma(sqlite, "artists", "long_term", 1_700_000_000_000, {
+      items: [
+        {
+          name: "Pixies",
+          images: [
+            { url: "grande", width: 640 },
+            { url: "media", width: 300 },
+          ],
+        },
+      ],
+    });
+    const c = await getContraste(db, "artists", "long_term", HOY);
+    expect(c?.spotify[0].imagen).toBe("media");
+  });
+
+  // Las pistas la llevan en su album, no en la raiz.
+  it("saca la carátula del álbum de la pista", async () => {
+    const { db, sqlite } = createTestDb();
+    guardarToma(sqlite, "tracks", "long_term", 1_700_000_000_000, {
+      items: [{ name: "Alison", album: { images: [{ url: "u", width: 300 }] } }],
+    });
+    const c = await getContraste(db, "tracks", "long_term", HOY);
+    expect(c?.spotify[0].imagen).toBe("u");
+  });
+
+  it("aguanta una toma sin imágenes", async () => {
+    const { db, sqlite } = createTestDb();
+    guardarToma(sqlite, "artists", "long_term", 1_700_000_000_000, {
+      items: [{ name: "Sin foto" }],
+    });
+    const c = await getContraste(db, "artists", "long_term", HOY);
+    expect(c?.spotify[0]).toEqual({ name: "Sin foto", imagen: undefined });
   });
 });

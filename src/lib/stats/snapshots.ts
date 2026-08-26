@@ -26,20 +26,55 @@ export type Contraste = {
   timeRange: SpotifyRange;
   label: string;
   tomadoEl: number;
-  /** Orden según Spotify. */
-  spotify: string[];
+  /** Orden según Spotify, con la imagen que venía en la toma. */
+  spotify: EntradaSpotify[];
   /** Orden según tus reproducciones, en la ventana equivalente. */
-  propio: { name: string; plays: number }[];
+  propio: { key: string; name: string; plays: number }[];
 };
 
-type Payload = { items?: { name?: string }[] };
+export type EntradaSpotify = { name: string; imagen?: string };
 
-function nombresDe(json: string): string[] {
+type Imagen = { url?: string; width?: number };
+
+type Payload = {
+  items?: {
+    name?: string;
+    /** Los artistas traen la foto aquí; las pistas, en su álbum. */
+    images?: Imagen[];
+    album?: { images?: Imagen[] };
+  }[];
+};
+
+const ANCHO_DESEADO = 300;
+
+function mejor(imagenes: Imagen[] | undefined): string | undefined {
+  const con = (imagenes ?? []).filter((i) => i.url);
+  if (con.length === 0) return undefined;
+
+  return con.reduce((m, i) =>
+    Math.abs((i.width ?? 0) - ANCHO_DESEADO) <
+    Math.abs((m.width ?? 0) - ANCHO_DESEADO)
+      ? i
+      : m,
+  ).url;
+}
+
+/**
+ * Nombres e imágenes de una toma.
+ *
+ * La imagen sale del propio payload, que guarda el objeto entero tal como lo
+ * devolvió Spotify. No cuesta ninguna petición y además es la foto de aquel
+ * día, que es lo coherente en una pantalla que compara instantáneas.
+ */
+function entradasDe(json: string): EntradaSpotify[] {
   try {
     const p = JSON.parse(json) as Payload;
     return (p.items ?? [])
-      .map((i) => i.name)
-      .filter((n): n is string => typeof n === "string");
+      .filter((i): i is { name: string } & typeof i => typeof i.name === "string")
+      .map((i) => ({
+        name: i.name,
+        imagen: mejor(i.images ?? i.album?.images),
+      }));
   } catch {
     return [];
   }
@@ -91,8 +126,9 @@ export async function getContraste(
   const nombre =
     entidad === "artists" ? streams.artistName : streams.trackName;
 
-  const propio = db.all<{ name: string; plays: number }>(sql`
+  const propio = db.all<{ key: string; name: string; plays: number }>(sql`
     SELECT
+      ${columna}     AS key,
       MAX(${nombre}) AS name,
       COUNT(*)       AS plays
     FROM ${streams}
@@ -107,7 +143,7 @@ export async function getContraste(
     timeRange,
     label,
     tomadoEl: fila.takenAt,
-    spotify: nombresDe(fila.payloadJson).slice(0, limite),
+    spotify: entradasDe(fila.payloadJson).slice(0, limite),
     propio,
   };
 }

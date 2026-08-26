@@ -12,6 +12,8 @@ import {
   type SpotifyRange,
 } from "@/lib/stats/snapshots";
 import TopBar from "@/components/TopBar";
+import Miniatura from "@/components/stats/Miniatura";
+import { normalizeName } from "@/lib/stats/normalize";
 
 export const dynamic = "force-dynamic";
 
@@ -21,14 +23,20 @@ function ahoraMs(): number {
   return Date.now();
 }
 
-/** Nombres presentes en una lista pero no en la otra, comparando sin acentos. */
-function normal(s: string): string {
-  return s
-    .normalize("NFKD")
-    .replace(/[\p{M}\p{Cf}]/gu, "")
-    .toLowerCase()
-    .trim();
-}
+/*
+ * Los nombres se comparan con `normalizeName`, la misma funcion que genera las
+ * claves de las estadisticas. Aqui habia una copia casi identica que no
+ * colapsaba los espacios repetidos: bastaba un nombre con doble espacio en una
+ * lista y no en la otra para que se contaran como distintos y las dos salieran
+ * marcadas como exclusivas.
+ */
+
+type Fila = {
+  name: string;
+  plays?: number;
+  imagen?: string;
+  href?: string;
+};
 
 function Columna({
   titulo,
@@ -38,33 +46,57 @@ function Columna({
 }: {
   titulo: string;
   nota: string;
-  items: { name: string; plays?: number }[];
+  items: Fila[];
   otros: Set<string>;
 }) {
   return (
     <div>
       <p className="label-mono text-mute mb-1">{titulo}</p>
-      <p className="label-mono text-mute mb-4">{nota}</p>
+      <p className="dato-mono text-mute mb-4">{nota}</p>
       <ol>
         {items.map((x, i) => {
-          const soloAqui = !otros.has(normal(x.name));
-          return (
-            <li
-              key={`${x.name}-${i}`}
-              className="flex items-baseline justify-between gap-3 py-2 hairline-b"
-            >
-              <span className="flex items-baseline gap-3 min-w-0">
-                <span className="label-mono text-mute num-tabular">
+          const soloAqui = !otros.has(normalizeName(x.name));
+
+          const cuerpo = (
+            <>
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="label-mono num-tabular w-6 shrink-0 text-mute">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <span className={`truncate ${soloAqui ? "text-acid" : ""}`}>
+                <Miniatura nombre={x.name} url={x.imagen} lado={34} />
+                <span
+                  className={`truncate transition-colors duration-200 ${
+                    soloAqui ? "text-acid" : "group-hover:text-acid"
+                  }`}
+                >
                   {x.name}
                 </span>
               </span>
               {x.plays !== undefined && (
-                <span className="label-mono text-mute num-tabular">
+                <span className="dato-mono shrink-0 text-mute">
                   {x.plays.toLocaleString("es")}
                 </span>
+              )}
+            </>
+          );
+
+          const clases =
+            "group flex items-center justify-between gap-3 rounded-xl px-2 py-1.5 " +
+            "transition-[transform,background-color] duration-200 ease-out";
+
+          return (
+            <li key={`${x.name}-${i}`}>
+              {/* Solo enlaza lo que existe en tu historial. Lo que Spotify
+                  pone y tu no has escuchado no tiene ficha que abrir. */}
+              {x.href ? (
+                <Link
+                  href={x.href}
+                  className={`${clases} hover:translate-x-1 hover:bg-ink-2/50`}
+                >
+                  {cuerpo}
+                </Link>
+              ) : (
+                <div className={clases}>{cuerpo}</div>
               )}
             </li>
           );
@@ -74,11 +106,30 @@ function Columna({
   );
 }
 
-function Bloque({ c }: { c: Contraste }) {
-  const enSpotify = new Set(c.spotify.map(normal));
-  const enPropio = new Set(c.propio.map((p) => normal(p.name)));
+function Bloque({ c, entidad }: { c: Contraste; entidad: Entidad }) {
+  const enSpotify = new Set(c.spotify.map((x) => normalizeName(x.name)));
+  const enPropio = new Set(c.propio.map((p) => normalizeName(p.name)));
 
-  const coinciden = c.spotify.filter((n) => enPropio.has(normal(n))).length;
+  const coinciden = c.spotify.filter((x) =>
+    enPropio.has(normalizeName(x.name)),
+  ).length;
+
+  const base = entidad === "artists" ? "/escucha/artista" : "/escucha/cancion";
+
+  // Lo que Spotify lista y tú sí escuchas tiene ficha; el resto, no. Se busca
+  // por el nombre normalizado porque la toma de Spotify no guarda nuestra
+  // clave.
+  const clavePorNombre = new Map(
+    c.propio.map((p) => [normalizeName(p.name), p.key]),
+  );
+
+  // La columna propia reaprovecha la imagen de la toma cuando el nombre
+  // coincide: es la misma entidad y ya está ahí, sin consultar nada.
+  const imagenPorNombre = new Map(
+    c.spotify
+      .filter((x) => x.imagen)
+      .map((x) => [normalizeName(x.name), x.imagen as string]),
+  );
 
   return (
     <section className="px-8 py-12 hairline-b">
@@ -93,13 +144,25 @@ function Bloque({ c }: { c: Contraste }) {
         <Columna
           titulo="Según Spotify"
           nota="su ranking, con criterios que no publica"
-          items={c.spotify.map((name) => ({ name }))}
+          items={c.spotify.map((x) => {
+            const clave = clavePorNombre.get(normalizeName(x.name));
+            return {
+              name: x.name,
+              imagen: x.imagen,
+              href: clave ? `${base}/${encodeURIComponent(clave)}` : undefined,
+            };
+          })}
           otros={enPropio}
         />
         <Columna
           titulo="Según tus escuchas"
           nota="contando reproducciones, sin ponderar"
-          items={c.propio}
+          items={c.propio.map((p) => ({
+            name: p.name,
+            plays: p.plays,
+            imagen: imagenPorNombre.get(normalizeName(p.name)),
+            href: `${base}/${encodeURIComponent(p.key)}`,
+          }))}
           otros={enSpotify}
         />
       </div>
@@ -184,7 +247,9 @@ export default async function Contraste({
           </p>
         </section>
       ) : (
-        disponibles.map((c) => <Bloque key={c.timeRange} c={c} />)
+        disponibles.map((c) => (
+          <Bloque key={c.timeRange} c={c} entidad={entidad} />
+        ))
       )}
 
       <footer className="hairline-b mt-auto" />
