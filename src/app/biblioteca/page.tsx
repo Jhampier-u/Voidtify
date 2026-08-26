@@ -10,6 +10,7 @@ import {
 } from "@/lib/spotify";
 import { sanitizeDescription } from "@/lib/sanitize";
 import { paginar } from "@/lib/paginar";
+import { buscarPlaylists } from "@/lib/buscar-playlists";
 import TopBar from "@/components/TopBar";
 import CreatePlaylistButton from "@/components/CreatePlaylistDialog";
 import MergePlaylistsButton from "@/components/MergePlaylistsDialog";
@@ -19,7 +20,7 @@ type FilterKey = "todas" | "mias" | "seguidas" | "collab";
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ f?: string; p?: string }>;
+  searchParams: Promise<{ f?: string; p?: string; q?: string }>;
 }) {
   const session = await auth();
 
@@ -57,7 +58,13 @@ export default async function Home({
   const pagina = Math.max(1, Number(params.p) || 1);
 
   return (
-    <Library me={me} playlists={playlists} filter={filter} pagina={pagina} />
+    <Library
+      me={me}
+      playlists={playlists}
+      filter={filter}
+      pagina={pagina}
+      consulta={params.q?.trim() ?? ""}
+    />
   );
 }
 
@@ -145,22 +152,32 @@ function Library({
   playlists,
   filter,
   pagina,
+  consulta,
 }: {
   me: SpotifyUser;
   playlists: SpotifyPlaylist[];
   filter: FilterKey;
   pagina: number;
+  consulta: string;
 }) {
   const total = playlists.length;
-  const owned = playlists.filter((p) => p.owner.id === me.id);
-  const followed = playlists.filter((p) => p.owner.id !== me.id);
-  const collab = playlists.filter((p) => p.collaborative);
   const totalTracks = playlists.reduce((s, p) => s + playlistTrackTotal(p), 0);
+
+  // Las cifras de la cabecera y la destacada hablan de la biblioteca entera:
+  // no deben encogerse al escribir en el buscador.
+  const misTodas = playlists.filter((p) => p.owner.id === me.id);
+
+  // Los chips, en cambio, filtran lo encontrado, asi que cuentan sobre ello.
+  const encontradas = buscarPlaylists(playlists, consulta);
+  const owned = encontradas.filter((p) => p.owner.id === me.id);
+  const followed = encontradas.filter((p) => p.owner.id !== me.id);
+  const collab = encontradas.filter((p) => p.collaborative);
 
   // Pick a featured playlist: the user's owned playlist with the most tracks.
   const featured =
-    [...owned].sort((a, b) => playlistTrackTotal(b) - playlistTrackTotal(a))[0] ??
-    playlists[0];
+    [...misTodas].sort(
+      (a, b) => playlistTrackTotal(b) - playlistTrackTotal(a),
+    )[0] ?? playlists[0];
 
   // Filter the grid (featured stays at top regardless).
   const filtradas =
@@ -170,7 +187,7 @@ function Library({
         ? followed
         : filter === "collab"
           ? collab
-          : playlists;
+          : encontradas;
 
   const {
     items: visible,
@@ -188,9 +205,9 @@ function Library({
       <Marquee />
 
       <Stats
-        owned={owned.length}
-        followed={followed.length}
-        collab={collab.length}
+        owned={misTodas.length}
+        followed={total - misTodas.length}
+        collab={playlists.filter((p) => p.collaborative).length}
         totalTracks={totalTracks}
       />
 
@@ -200,7 +217,10 @@ function Library({
         <div className="hairline-b pb-4 mb-10">
           <div className="flex items-baseline justify-between mb-5 flex-wrap gap-y-3">
             <h2 className="label-mono text-acid">
-              Índice <span className="text-mute">/ 001 — {pad(total)}</span>
+              Índice{" "}
+              <span className="text-mute">
+                / {consulta ? `${filtradas.length} encontradas` : `001 — ${pad(total)}`}
+              </span>
             </h2>
             <p className="label-mono text-mute hidden md:block">
               ORDEN POR DEFECTO · ALFABÉTICO
@@ -210,15 +230,38 @@ function Library({
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <FilterChips
               current={filter}
+              consulta={consulta}
               counts={{
-                todas: total,
+                todas: encontradas.length,
                 mias: owned.length,
                 seguidas: followed.length,
                 collab: collab.length,
               }}
             />
             <div className="flex items-center gap-2">
-              <MergePlaylistsButton playlists={owned} />
+              {/* GET y no una action: la busqueda vive en la URL como el
+                  filtro y la pagina, asi que el boton atras funciona y una
+                  busqueda concreta se puede compartir. */}
+              <form method="get" action="/biblioteca" className="flex items-center">
+                {filter !== "todas" && (
+                  <input type="hidden" name="f" value={filter} />
+                )}
+                <input
+                  type="search"
+                  name="q"
+                  defaultValue={consulta}
+                  placeholder="buscar por nombre o dueño"
+                  aria-label="Buscar en la biblioteca"
+                  className="w-56 rounded-l-lg border border-rule bg-ink-2 px-3 py-1.5
+                             font-mono text-xs outline-none transition-colors
+                             focus:border-acid"
+                />
+                <button className="label-mono rounded-r-lg border border-l-0 border-rule
+                                   px-3 py-1.5 transition-colors hover:text-acid">
+                  Buscar
+                </button>
+              </form>
+              <MergePlaylistsButton playlists={misTodas} />
               <CreatePlaylistButton />
             </div>
           </div>
@@ -226,7 +269,9 @@ function Library({
 
         {visible.length === 0 ? (
           <p className="font-serif italic text-mute py-16 text-center">
-            No hay playlists en esta vista.
+            {consulta
+              ? `Ninguna playlist coincide con «${consulta}».`
+              : "No hay playlists en esta vista."}
           </p>
         ) : (
           <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-6 gap-y-14">
@@ -242,7 +287,12 @@ function Library({
         )}
 
         {paginas > 1 && (
-          <Paginacion filtro={filter} actual={actual} paginas={paginas} />
+          <Paginacion
+            filtro={filter}
+            consulta={consulta}
+            actual={actual}
+            paginas={paginas}
+          />
         )}
       </section>
 
@@ -401,16 +451,19 @@ function FeaturedStat({ label, value }: { label: string; value: string }) {
  */
 function Paginacion({
   filtro,
+  consulta,
   actual,
   paginas,
 }: {
   filtro: FilterKey;
+  consulta: string;
   actual: number;
   paginas: number;
 }) {
   const enlace = (p: number) => {
     const q = new URLSearchParams();
     if (filtro !== "todas") q.set("f", filtro);
+    if (consulta) q.set("q", consulta);
     if (p > 1) q.set("p", String(p));
     const s = q.toString();
     return s ? `/biblioteca?${s}` : "/biblioteca";
@@ -452,9 +505,11 @@ function Paginacion({
 function FilterChips({
   current,
   counts,
+  consulta,
 }: {
   current: FilterKey;
   counts: Record<FilterKey, number>;
+  consulta: string;
 }) {
   const items: { key: FilterKey; label: string }[] = [
     { key: "todas", label: "Todas" },
@@ -468,9 +523,13 @@ function FilterChips({
         const active = current === it.key;
         // A /biblioteca, no a «/»: esta pagina fue la de inicio y los enlaces
         // se quedaron apuntando alli, asi que filtrar te sacaba a la portada de
-        // estadisticas. Y sin `p`, para que cambiar de filtro vuelva a empezar.
-        const href =
-          it.key === "todas" ? "/biblioteca" : `/biblioteca?f=${it.key}`;
+        // estadisticas. Se conserva la busqueda pero no la pagina: cambiar de
+        // filtro debe volver a empezar.
+        const q = new URLSearchParams();
+        if (it.key !== "todas") q.set("f", it.key);
+        if (consulta) q.set("q", consulta);
+        const cadena = q.toString();
+        const href = cadena ? `/biblioteca?${cadena}` : "/biblioteca";
         return (
           <Link
             key={it.key}
