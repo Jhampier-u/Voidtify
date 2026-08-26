@@ -23,12 +23,26 @@ describe("getArtistasParaRefrescar", () => {
     sqlite = t.sqlite;
   });
 
-  const cachear = (nombre: string, cuando: number) =>
+  /**
+   * Un artista del todo resuelto: etiquetas y cifras.
+   *
+   * Las dos cosas, porque tener solo etiquetas ya no cuenta como resuelto —los
+   * artistas guardados antes de que existiera `artist_stats` se quedaban sin
+   * oyentes hasta que caducaban.
+   */
+  const cachear = (nombre: string, cuando: number) => {
+    const k = artistKey(nombre);
     sqlite
       .prepare(
         "INSERT INTO artist_genres (artist_key, genres, fetched_at) VALUES (?, ?, ?)",
       )
-      .run(artistKey(nombre), '["shoegaze"]', cuando);
+      .run(k, '["shoegaze"]', cuando);
+    sqlite
+      .prepare(
+        "INSERT INTO artist_stats (artist_key, listeners, playcount, fetched_at) VALUES (?, ?, ?, ?)",
+      )
+      .run(k, 1000, 5000, cuando);
+  };
 
   it("no devuelve nada si no hay escuchas", () => {
     expect(getArtistasParaRefrescar(db, 10, AHORA)).toEqual([]);
@@ -138,5 +152,42 @@ describe("guardarStats", () => {
     const filas = await db.select().from(artistStats);
     expect(filas[0].listeners).toBeNull();
     expect(filas[0].playcount).toBeNull();
+  });
+});
+
+// Los artistas resueltos antes de que existiera artist_stats tenian etiquetas y
+// no habian caducado, asi que el relleno los saltaba y sus oyentes no habrian
+// aparecido hasta pasados noventa dias.
+describe("getArtistasParaRefrescar · etiquetas sin cifras", () => {
+  it("recoge a los que tienen géneros pero no oyentes", () => {
+    const t = createTestDb();
+    seedStreams(t.sqlite, [stream({ artistName: "Antiguo" })]);
+    t.sqlite
+      .prepare(
+        "INSERT INTO artist_genres (artist_key, genres, fetched_at) VALUES (?, ?, ?)",
+      )
+      .run(artistKey("Antiguo"), '["shoegaze"]', AHORA - DIA);
+
+    expect(getArtistasParaRefrescar(t.db, 10, AHORA).map((a) => a.name)).toEqual([
+      "Antiguo",
+    ]);
+  });
+
+  it("deja en paz a los que tienen las dos cosas", () => {
+    const t = createTestDb();
+    seedStreams(t.sqlite, [stream({ artistName: "Completo" })]);
+    const k = artistKey("Completo");
+    t.sqlite
+      .prepare(
+        "INSERT INTO artist_genres (artist_key, genres, fetched_at) VALUES (?, ?, ?)",
+      )
+      .run(k, '["shoegaze"]', AHORA - DIA);
+    t.sqlite
+      .prepare(
+        "INSERT INTO artist_stats (artist_key, listeners, playcount, fetched_at) VALUES (?, ?, ?, ?)",
+      )
+      .run(k, 1000, 5000, AHORA - DIA);
+
+    expect(getArtistasParaRefrescar(t.db, 10, AHORA)).toEqual([]);
   });
 });

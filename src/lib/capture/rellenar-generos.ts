@@ -22,8 +22,15 @@ export const MAX_EDAD_MS = 90 * 86_400_000;
 /**
  * Artistas que hace falta consultar, priorizando los que suenan ahora.
  *
- * Entran los que no se han consultado nunca y los que se consultaron hace más
- * de `maxEdadMs`. Manda la actividad reciente y el total desempata: las
+ * Entran los que no se han consultado nunca, los que se consultaron hace más
+ * de `maxEdadMs`, y los que tienen etiquetas pero no cifras de oyentes.
+ *
+ * Ese tercer caso no es teórico: los artistas resueltos antes de que existiera
+ * `artist_stats` tenían géneros y no habían caducado, así que el relleno los
+ * saltaba — y sus oyentes no habrían aparecido hasta pasados noventa días. Se
+ * notó al enseñarlos en la ficha, donde el primero del ranking salía sin cifra.
+ *
+ * Manda la actividad reciente y el total desempata: las
  * pantallas muestran por defecto las últimas cuatro semanas, y ordenar solo por
  * el histórico llenaba la caché con artistas que no están en pantalla. Se vio
  * al montar las fotos, donde el efecto era descarado — ninguno de los diez
@@ -44,8 +51,13 @@ export function getArtistasParaRefrescar(
       MAX(${streams.artistName}) AS name
     FROM ${streams}
     LEFT JOIN ${artistGenres} ON ${artistGenres.artistKey} = ${streams.artistKey}
+    LEFT JOIN ${artistStats}  ON ${artistStats.artistKey}  = ${streams.artistKey}
     WHERE ${contadas()}
-      AND (${artistGenres.artistKey} IS NULL OR ${artistGenres.fetchedAt} < ${corte})
+      AND (
+        ${artistGenres.artistKey} IS NULL
+        OR ${artistGenres.fetchedAt} < ${corte}
+        OR ${artistStats.artistKey} IS NULL
+      )
     GROUP BY ${streams.artistKey}
     ORDER BY
       SUM(CASE WHEN ${streams.localDate} >= ${desde} THEN 1 ELSE 0 END) DESC,

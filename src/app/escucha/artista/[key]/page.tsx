@@ -10,6 +10,10 @@ import TopBar from "@/components/TopBar";
 import Miniatura from "@/components/stats/Miniatura";
 import { getImagenesDeArtistas, getCaratulas } from "@/lib/stats/imagenes";
 import { duracion } from "@/lib/formato";
+import {
+  frasePercentil,
+  getContextoArtista,
+} from "@/lib/stats/artista-contexto";
 import RangePicker from "@/components/stats/RangePicker";
 
 export const dynamic = "force-dynamic";
@@ -52,9 +56,10 @@ export default async function FichaArtista({
 
   // Depende de la ficha, asi que va despues: solo hacen falta la foto de este
   // artista y las caratulas de las canciones que se van a pintar.
-  const [imagenes, caratulas] = await Promise.all([
+  const [imagenes, caratulas, contexto] = await Promise.all([
     getImagenesDeArtistas(db, [clave]),
     getCaratulas(db, "cancion", ficha.topTracks.map((t) => t.key)),
+    getContextoArtista(db, clave),
   ]);
 
   const minutos = Math.round(ficha.ms / 60000);
@@ -105,6 +110,39 @@ export default async function FichaArtista({
             >
               {ficha.name}
             </h1>
+
+            {contexto.generos.length > 0 && (
+              <ul className="mt-5 flex flex-wrap gap-2">
+                {contexto.generos.slice(0, 5).map((g) => (
+                  <li
+                    key={g}
+                    className="label-mono rounded-full px-3 py-1 text-mute
+                               ring-1 ring-rule"
+                  >
+                    {g}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {contexto.listeners !== null && (
+              <p className="mt-5 dato-mono text-mute">
+                <span className="text-cream-dim">
+                  {contexto.listeners.toLocaleString("es")}
+                </span>{" "}
+                oyentes en Last.fm
+                {/* La cifra suelta no dice gran cosa: nadie sabe si dos
+                    millones es mucho. Situarla entre lo que ya escucha si. */}
+                {contexto.percentil !== null && (
+                  <>
+                    {" · "}
+                    <span className="text-acid">
+                      {frasePercentil(contexto.percentil)}
+                    </span>
+                  </>
+                )}
+              </p>
+            )}
           </div>
         </div>
       </section>
