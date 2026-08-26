@@ -11,6 +11,15 @@ export type SkipStats = {
   tasa: number;
   /** Fecha local desde la que hay datos fiables, o null si no hay ninguno. */
   desde: string | null;
+  /**
+   * Última fecha con datos de abandono **en todo el archivo**, no en el rango.
+   *
+   * Se necesita para poder explicar un panel vacío. El abandono solo llega en
+   * el volcado, que termina el día en que se pidió: cualquier rango posterior
+   * no tendrá ni una fila, y decir «ningún artista llega al mínimo» daría a
+   * entender que no saltas nada.
+   */
+  hastaEnArchivo: string | null;
 };
 
 export type SkippedArtist = {
@@ -48,10 +57,18 @@ export async function getSkipStats(
     WHERE ${enRango(range)} AND ${SOLO_IMPORTADAS}
   `)[0];
 
+  // Sin filtro de rango a propósito: es el limite del dato, no del periodo.
+  const limite = db.all<{ hasta: string | null }>(sql`
+    SELECT MAX(${streams.localDate}) AS hasta
+    FROM ${streams}
+    WHERE ${SOLO_IMPORTADAS}
+  `)[0];
+
   const conDatos = f?.con_datos ?? 0;
   const abandonadas = f?.abandonadas ?? 0;
 
   return {
+    hastaEnArchivo: limite?.hasta ?? null,
     conDatos,
     abandonadas,
     tasa: conDatos === 0 ? 0 : abandonadas / conDatos,

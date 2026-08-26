@@ -22,6 +22,7 @@ describe("getSkipStats", () => {
       abandonadas: 0,
       tasa: 0,
       desde: null,
+      hastaEnArchivo: null,
     });
   });
 
@@ -187,5 +188,39 @@ describe("getByDate", () => {
     ]);
 
     expect((await getByDate(db, TODO))[0].ms).toBe(150_000);
+  });
+});
+
+// El abandono solo llega en el volcado, que termina el dia en que se pidio.
+// Cualquier rango posterior no tiene ni una fila, y sin este dato la pantalla
+// no podria distinguir «no saltas nada» de «aqui no hay informacion».
+describe("getSkipStats · limite del dato", () => {
+  it("dice hasta cuándo hay abandono en todo el archivo", async () => {
+    const { db, sqlite } = createTestDb();
+    seedStreams(sqlite, [
+      stream({ localDate: "2026-07-20", source: "import", skipped: 1 }),
+      stream({ localDate: "2026-07-26", source: "import", skipped: 0 }),
+      // Capturada en vivo: no trae dato de salto y no debe correr el limite.
+      stream({ localDate: "2026-08-20", source: "live", skipped: null }),
+    ]);
+    const s = await getSkipStats(db, TODO);
+    expect(s.hastaEnArchivo).toBe("2026-07-26");
+  });
+
+  // Es el limite del dato, no el del periodo: sirve justo para explicar un
+  // rango vacio, asi que no puede depender del rango.
+  it("no lo recorta el rango consultado", async () => {
+    const { db, sqlite } = createTestDb();
+    seedStreams(sqlite, [
+      stream({ localDate: "2026-07-26", source: "import", skipped: 1 }),
+    ]);
+    const s = await getSkipStats(db, {
+      fromDate: "2026-08-01",
+      toDate: "2026-08-31",
+      label: "agosto",
+      preset: "custom",
+    });
+    expect(s.conDatos).toBe(0);
+    expect(s.hastaEnArchivo).toBe("2026-07-26");
   });
 });

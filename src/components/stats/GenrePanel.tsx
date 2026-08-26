@@ -73,18 +73,27 @@ export default function GenrePanel({
           {generos.map((g, i) => (
             <li
               key={g.name}
-              className="flex items-center gap-3 rise"
+              className="group flex items-center gap-3 rounded-lg px-1 py-0.5 rise
+                         transition-colors duration-200 hover:bg-ink-2/40"
               style={{ animationDelay: `${i * 40}ms` }}
+              title={`${g.plays.toLocaleString("es")} reproducciones · ${g.artistas} ${
+                g.artistas === 1 ? "artista" : "artistas"
+              }`}
             >
-              <span className="w-40 shrink-0 truncate">{g.name}</span>
-              <span className="flex-1 h-3 bg-ink-2 overflow-hidden">
+              <span className="w-40 shrink-0 truncate transition-colors duration-200 group-hover:text-acid">
+                {g.name}
+              </span>
+              <span className="h-3 flex-1 overflow-hidden rounded-full bg-ink-2">
                 <span
-                  className={`block h-full ${i === 0 ? "bg-acid" : "bg-cream-dim/35"}`}
+                  className={`block h-full rounded-full transition-[filter] duration-200
+                              group-hover:brightness-125 ${
+                                i === 0 ? "bg-acid" : "bg-cream-dim/35"
+                              }`}
                   style={{ width: `${(g.plays / max) * 100}%` }}
                 />
               </span>
-              <span className="label-mono text-mute num-tabular w-16 text-right shrink-0">
-                {(g.share * 100).toFixed(1)}%
+              <span className="dato-mono w-16 shrink-0 text-right text-mute">
+                {(g.share * 100).toFixed(1)} %
               </span>
             </li>
           ))}

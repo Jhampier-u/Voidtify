@@ -1,8 +1,11 @@
+import Link from "next/link";
+import Miniatura from "./Miniatura";
 type Stats = {
   conDatos: number;
   abandonadas: number;
   tasa: number;
   desde: string | null;
+  hastaEnArchivo: string | null;
 };
 
 type Artista = {
@@ -23,11 +26,34 @@ type Artista = {
 export default function SkipPanel({
   stats,
   artistas,
+  imagenes = {},
 }: {
   stats: Stats;
   artistas: Artista[];
+  /** Fotos por clave de artista. Las que falten muestran iniciales. */
+  imagenes?: Record<string, string>;
 }) {
-  if (stats.conDatos === 0) return null;
+  // El abandono solo llega en el volcado, que termina el dia en que se pidio:
+  // cualquier rango posterior no tiene ni una fila. Desaparecer sin mas hacia
+  // que la seccion se esfumara de la portada sin explicacion, que parece un
+  // fallo. Si nunca hubo volcado no hay nada que contar y si se calla.
+  if (stats.conDatos === 0) {
+    if (!stats.hastaEnArchivo) return null;
+
+    return (
+      <section>
+        <p className="label-mono text-mute mb-4">Abandono</p>
+        <p className="font-serif italic text-cream-dim max-w-xl">
+          En este rango no hay datos de abandono. Spotify no dice si saltaste
+          una canción: eso solo viene en el volcado de tu historial, y el tuyo
+          termina el {stats.hastaEnArchivo}.
+        </p>
+        <p className="label-mono text-mute mt-3">
+          Elige un rango anterior a esa fecha, o pide un volcado nuevo.
+        </p>
+      </section>
+    );
+  }
 
   const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
 
@@ -63,22 +89,41 @@ export default function SkipPanel({
         ) : (
           <ol>
             {artistas.map((a, i) => (
-              <li
-                key={a.key}
-                className="relative flex items-baseline justify-between gap-4 px-2 py-2 hairline-b overflow-hidden rise"
-                style={{ animationDelay: `${i * 40}ms` }}
-              >
-                <span
-                  aria-hidden
-                  className="absolute inset-y-0 left-0 bg-blood/15"
-                  style={{ width: `${a.tasa * 100}%` }}
-                />
-                <span className="relative truncate">{a.name}</span>
-                <span className="relative label-mono text-mute num-tabular whitespace-nowrap">
-                  {pct(a.tasa)}
-                  <span className="text-rule"> / </span>
-                  {a.plays.toLocaleString("es")}
-                </span>
+              <li key={a.key} className="rise" style={{ animationDelay: `${i * 40}ms` }}>
+                <Link
+                  href={`/escucha/artista/${encodeURIComponent(a.key)}`}
+                  className="group relative flex items-center justify-between gap-3
+                             overflow-hidden rounded-xl px-2 py-1.5
+                             transition-[transform,background-color] duration-200
+                             ease-out hover:translate-x-1 hover:bg-ink-2/50"
+                >
+                  {/* Rojo y no verde: aqui la barra larga es lo malo. Y en
+                      pastilla, como el resto, para que se lea como magnitud y
+                      no como bloque de color. */}
+                  <span
+                    aria-hidden
+                    className="absolute inset-y-1 left-0 rounded-r-full opacity-80
+                               bg-gradient-to-r from-blood/30 via-blood/15 to-blood/[0.04]
+                               transition-opacity duration-200 group-hover:opacity-100"
+                    style={{ width: `${a.tasa * 100}%` }}
+                  />
+
+                  <span className="relative flex min-w-0 items-center gap-3">
+                    <Miniatura nombre={a.name} url={imagenes[a.key]} lado={34} />
+                    <span className="truncate transition-colors duration-200 group-hover:text-acid">
+                      {a.name}
+                    </span>
+                  </span>
+
+                  <span className="relative shrink-0 text-right">
+                    <span className="block num-tabular font-mono text-sm text-cream-dim">
+                      {pct(a.tasa)}
+                    </span>
+                    <span className="block num-tabular font-mono text-[11px] text-mute">
+                      de {a.plays.toLocaleString("es")}
+                    </span>
+                  </span>
+                </Link>
               </li>
             ))}
           </ol>

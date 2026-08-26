@@ -95,7 +95,14 @@ export default async function Portada({
   // hacen falta las fotos de los diez que se van a pintar.
   const [imagenesArtistas, caratulasCanciones, caratulasAlbumes] =
     await Promise.all([
-      getImagenesDeArtistas(db, artistas.map((a) => a.key)),
+      // Se piden juntas las de los dos rankings de artista de la pagina: los
+      // mas escuchados y los mas saltados, que rara vez coinciden.
+      getImagenesDeArtistas(db, [
+        ...new Set([
+          ...artistas.map((a) => a.key),
+          ...masSaltados.map((a) => a.key),
+        ]),
+      ]),
       getCaratulas(db, "cancion", canciones.map((c) => c.key)),
       getCaratulas(db, "album", albumes.map((a) => a.key)),
     ]);
@@ -306,7 +313,11 @@ export default async function Portada({
           {/* ---------------- Abandono ---------------- */}
           {skips.conDatos > 0 && (
             <section className="px-8 py-12 hairline-b rise">
-              <SkipPanel stats={skips} artistas={masSaltados} />
+              <SkipPanel
+          stats={skips}
+          artistas={masSaltados}
+          imagenes={imagenesArtistas}
+        />
             </section>
           )}
         </>
