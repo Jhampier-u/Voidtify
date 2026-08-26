@@ -26,17 +26,21 @@ export default async function AjustesPage() {
   // sesion redirige aqui de todos modos, asi que ir por ella eran dos saltos.
   if (!session) redirect("/biblioteca");
 
+  // Un solo instante para toda la pagina: con una llamada por sitio, «hace 12 h»
+  // y el umbral de las doce horas podian calcularse con relojes distintos.
+  const ahora = ahoraMs();
+
   const [me, estado, conteo, archivos, caches] = await Promise.all([
     getMe(),
     getCaptureState(),
     db.select({ n: sql<number>`count(*)` }).from(streams),
     listarArchivos(),
-    getEstadoCaches(db, ahoraMs()),
+    getEstadoCaches(db, ahora),
   ]);
 
   // Lee el disco, no una tabla: lo que importa no es que el script diga que
   // copio, sino que el archivo este ahi.
-  const copias = getEstadoCopias(ahoraMs());
+  const copias = getEstadoCopias(ahora);
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -50,12 +54,10 @@ export default async function AjustesPage() {
       </section>
 
       <CaptureHealth
-        lastRunAt={estado?.lastRunAt ?? null}
-        lastRunStatus={estado?.lastRunStatus ?? null}
+        estado={estado ?? null}
         lastRunInserted={estado?.lastRunInserted ?? null}
-        lastError={estado?.lastError ?? null}
-        gapSuspectedAt={estado?.gapSuspectedAt ?? null}
         totalStreams={conteo[0]?.n ?? 0}
+        ahoraMs={ahora}
       />
 
       <PanelCaches caches={caches} copias={copias} />

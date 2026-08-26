@@ -65,3 +65,26 @@ export function duracionCorta(ms: number): string {
   const min = Math.floor(seg / 60);
   return `${min}:${String(seg % 60).padStart(2, "0")}`;
 }
+
+/**
+ * Un instante pasado a «hace 20 min», «hace 3 h», «hace 2 días».
+ *
+ * Recibe el ahora como argumento en vez de llamar a `Date.now()`: así el
+ * resultado es el mismo en el render del servidor y en el del cliente, que es
+ * justo donde una hora leída dos veces produce un desajuste de hidratación.
+ *
+ * No baja de la unidad: «hace 90 min» sería más exacto que «hace 1 h», pero
+ * aquí la cifra sirve para decidir si algo está roto, y para eso la precisión
+ * al minuto no cambia ninguna decisión.
+ */
+export function haceCuanto(desdeMs: number, ahoraMs: number): string {
+  const minutos = Math.floor((ahoraMs - desdeMs) / 60_000);
+  if (minutos < 1) return "hace menos de un minuto";
+  if (minutos < 60) return `hace ${minutos} min`;
+
+  const horas = Math.floor(minutos / 60);
+  if (horas < 24) return `hace ${horas} h`;
+
+  const dias = Math.floor(horas / 24);
+  return dias === 1 ? "hace 1 día" : `hace ${dias} días`;
+}

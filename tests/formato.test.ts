@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { duracion, duracionCorta, fechaLarga } from "@/lib/formato";
+import {
+  duracion,
+  duracionCorta,
+  fechaLarga,
+  haceCuanto,
+} from "@/lib/formato";
 
 const MIN = 60_000;
 
@@ -102,5 +107,35 @@ describe("duracionCorta", () => {
 
   it("pasa de la hora sin romperse", () => {
     expect(duracionCorta(3_930_000)).toBe("65:30");
+  });
+});
+
+describe("haceCuanto", () => {
+  const AHORA = 1_700_000_000_000;
+  const hace = (ms: number) => haceCuanto(AHORA - ms, AHORA);
+
+  it("no da cifras por debajo del minuto", () => {
+    expect(hace(30_000)).toBe("hace menos de un minuto");
+  });
+
+  it("da minutos dentro de la primera hora", () => {
+    expect(hace(20 * MIN)).toBe("hace 20 min");
+    expect(hace(59 * MIN)).toBe("hace 59 min");
+  });
+
+  it("pasa a horas al cumplir la hora", () => {
+    expect(hace(60 * MIN)).toBe("hace 1 h");
+    expect(hace(23 * 60 * MIN)).toBe("hace 23 h");
+  });
+
+  it("pasa a dias al cumplir el dia", () => {
+    expect(hace(24 * 60 * MIN)).toBe("hace 1 día");
+    expect(hace(50 * 60 * MIN)).toBe("hace 2 días");
+  });
+
+  // Un reloj que se atrasa, o dos maquinas con la hora distinta, no deben
+  // producir «hace -3 min»: el suelo es el mismo texto del primer minuto.
+  it("no da tiempos negativos si el instante esta en el futuro", () => {
+    expect(haceCuanto(AHORA + 5 * MIN, AHORA)).toBe("hace menos de un minuto");
   });
 });

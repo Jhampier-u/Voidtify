@@ -27,6 +27,9 @@ import SkipPanel from "@/components/stats/SkipPanel";
 import ShareCards from "@/components/stats/ShareCards";
 import GenrePanel from "@/components/stats/GenrePanel";
 import PlaylistFromTops from "@/components/stats/PlaylistFromTops";
+import AvisoCaptura from "@/components/AvisoCaptura";
+import { getCaptureState } from "@/lib/capture/run-capture";
+import { saludCaptura } from "@/lib/salud-captura";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +78,7 @@ export default async function Portada({
     skips,
     masSaltados,
     generos,
+    estadoCaptura,
   ] = await Promise.all([
     getMe(),
     getTotals(db, range),
@@ -89,6 +93,7 @@ export default async function Portada({
     getSkipStats(db, range),
     getMostSkippedArtists(db, range),
     getGenreBreakdown(db, range),
+    getCaptureState(),
   ]);
 
   // Depende de los tops, asi que va despues del Promise.all y no dentro: solo
@@ -117,6 +122,9 @@ export default async function Portada({
   return (
     <main className="min-h-screen flex flex-col">
       <TopBar me={me} active="portada" />
+
+      {/* Solo ocupa sitio cuando la captura no esta recogiendo escuchas. */}
+      <AvisoCaptura salud={saludCaptura(estadoCaptura, ahora)} />
 
       <section className="px-8 py-5 hairline-b">
         <RangePicker range={range} />
