@@ -9,6 +9,7 @@ import {
   type SpotifyUser,
 } from "@/lib/spotify";
 import { sanitizeDescription } from "@/lib/sanitize";
+import { paginar } from "@/lib/paginar";
 import TopBar from "@/components/TopBar";
 import CreatePlaylistButton from "@/components/CreatePlaylistDialog";
 import MergePlaylistsButton from "@/components/MergePlaylistsDialog";
@@ -18,7 +19,7 @@ type FilterKey = "todas" | "mias" | "seguidas" | "collab";
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ f?: string }>;
+  searchParams: Promise<{ f?: string; p?: string }>;
 }) {
   const session = await auth();
 
@@ -53,7 +54,11 @@ export default async function Home({
       : "todas"
   ) as FilterKey;
 
-  return <Library me={me} playlists={playlists} filter={filter} />;
+  const pagina = Math.max(1, Number(params.p) || 1);
+
+  return (
+    <Library me={me} playlists={playlists} filter={filter} pagina={pagina} />
+  );
 }
 
 /* ---------------------------------------------------------------- */
@@ -126,14 +131,25 @@ function LoginScreen() {
 
 /* ---------------------------------------------------------------- */
 
+/**
+ * Cuantas tarjetas por pagina.
+ *
+ * Con la rejilla mas ancha son diez filas de seis. Suficiente para que
+ * desplazarse valga la pena y poco para que el navegador no cargue con 380
+ * tarjetas y sus portadas de golpe.
+ */
+const POR_PAGINA = 60;
+
 function Library({
   me,
   playlists,
   filter,
+  pagina,
 }: {
   me: SpotifyUser;
   playlists: SpotifyPlaylist[];
   filter: FilterKey;
+  pagina: number;
 }) {
   const total = playlists.length;
   const owned = playlists.filter((p) => p.owner.id === me.id);
@@ -147,7 +163,7 @@ function Library({
     playlists[0];
 
   // Filter the grid (featured stays at top regardless).
-  const visible =
+  const filtradas =
     filter === "mias"
       ? owned
       : filter === "seguidas"
@@ -155,6 +171,13 @@ function Library({
         : filter === "collab"
           ? collab
           : playlists;
+
+  const {
+    items: visible,
+    actual,
+    paginas,
+    desde,
+  } = paginar(filtradas, pagina, POR_PAGINA);
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -211,18 +234,22 @@ function Library({
               <PlaylistCard
                 key={p.id}
                 playlist={p}
-                index={i + 1}
+                index={desde + i + 1}
                 ownedByMe={p.owner.id === me.id}
               />
             ))}
           </ul>
+        )}
+
+        {paginas > 1 && (
+          <Paginacion filtro={filter} actual={actual} paginas={paginas} />
         )}
       </section>
 
       <footer className="hairline-b" />
       <div className="px-8 py-5 flex items-center justify-between label-mono text-mute">
         <span>FIN DEL ÍNDICE</span>
-        <span>{pad(visible.length)} VISIBLES · LEDGER № 001</span>
+        <span>{pad(filtradas.length)} EN ESTA VISTA · LEDGER № 001</span>
       </div>
     </main>
   );
@@ -365,6 +392,63 @@ function FeaturedStat({ label, value }: { label: string; value: string }) {
 
 /* ---------------------------------------------------------------- */
 
+/**
+ * Navegacion entre paginas del indice.
+ *
+ * La pagina vive en la URL, como el rango y el filtro: el boton atras funciona
+ * y una pagina concreta se puede marcar como favorita. El filtro viaja con
+ * ella, que si no, pasar de pagina volveria a «Todas».
+ */
+function Paginacion({
+  filtro,
+  actual,
+  paginas,
+}: {
+  filtro: FilterKey;
+  actual: number;
+  paginas: number;
+}) {
+  const enlace = (p: number) => {
+    const q = new URLSearchParams();
+    if (filtro !== "todas") q.set("f", filtro);
+    if (p > 1) q.set("p", String(p));
+    const s = q.toString();
+    return s ? `/biblioteca?${s}` : "/biblioteca";
+  };
+
+  return (
+    <nav className="mt-16 flex items-center justify-between hairline-b pt-8">
+      {actual > 1 ? (
+        <Link
+          href={enlace(actual - 1)}
+          className="label-mono text-mute transition-colors hover:text-acid"
+        >
+          ← Anterior
+        </Link>
+      ) : (
+        <span />
+      )}
+
+      <span className="dato-mono text-mute">
+        {actual} de {paginas}
+      </span>
+
+      {actual < paginas ? (
+        <Link
+          href={enlace(actual + 1)}
+          className="label-mono text-mute transition-colors hover:text-acid"
+        >
+          Siguiente →
+        </Link>
+      ) : (
+        <span />
+      )}
+    </nav>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+
 function FilterChips({
   current,
   counts,
@@ -382,7 +466,11 @@ function FilterChips({
     <div className="flex items-center gap-2 flex-wrap">
       {items.map((it) => {
         const active = current === it.key;
-        const href = it.key === "todas" ? "/" : `/?f=${it.key}`;
+        // A /biblioteca, no a «/»: esta pagina fue la de inicio y los enlaces
+        // se quedaron apuntando alli, asi que filtrar te sacaba a la portada de
+        // estadisticas. Y sin `p`, para que cambiar de filtro vuelva a empezar.
+        const href =
+          it.key === "todas" ? "/biblioteca" : `/biblioteca?f=${it.key}`;
         return (
           <Link
             key={it.key}
