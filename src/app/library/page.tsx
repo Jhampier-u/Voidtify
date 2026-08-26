@@ -3,9 +3,21 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getMe, getLikedSongs, type SavedTrackItem } from "@/lib/spotify";
+import { db } from "@/db";
+import { trackKey } from "@/lib/stats/normalize";
+import { getTrackHistory, type TrackHistory } from "@/lib/stats/track-history";
 import TopBar from "@/components/TopBar";
 
 const PAGE_SIZE = 50;
+
+/**
+ * `Date.now()` en el cuerpo de un componente lo veta `react-hooks/purity`: dos
+ * renders darian resultados distintos. Mismo envoltorio que usan las demas
+ * paginas.
+ */
+function ahoraMs(): number {
+  return Date.now();
+}
 
 export default async function LibraryPage({
   searchParams,
@@ -23,6 +35,23 @@ export default async function LibraryPage({
     getMe(),
     getLikedSongs(PAGE_SIZE, offset),
   ]);
+
+  // Cruce con el archivo de escuchas, solo de las cincuenta que se pintan.
+  //
+  // Es la pregunta que esta pantalla no podia responder: guardas miles de
+  // canciones, pero ¿cuales suenan? Sin esto es un inventario; con esto se ve
+  // que has guardado y nunca has puesto.
+  const claves = new Map<string, string>();
+  for (const it of liked.items) {
+    const t = it.track;
+    // Las pistas locales llegan sin id y sin nada con que cruzarlas.
+    if (t?.id) claves.set(t.id, trackKey(t.artists[0]?.name ?? "", t.name));
+  }
+  const historia = await getTrackHistory(
+    db,
+    [...new Set(claves.values())],
+    ahoraMs(),
+  );
 
   const totalPages = Math.max(1, Math.ceil(liked.total / PAGE_SIZE));
   const startIndex = offset + 1;
@@ -50,6 +79,12 @@ export default async function LibraryPage({
               key={`${item.track.id ?? "local"}-${offset + i}`}
               item={item}
               index={offset + i + 1}
+              clave={item.track.id ? claves.get(item.track.id) : undefined}
+              historia={
+                historia.get(
+                  (item.track.id ? claves.get(item.track.id) : "") ?? "",
+                ) ?? undefined
+              }
             />
           ))}
         </ul>
@@ -114,9 +149,13 @@ function Header({ total }: { total: number }) {
 function TrackRow({
   item,
   index,
+  clave,
+  historia,
 }: {
   item: SavedTrackItem;
   index: number;
+  clave?: string;
+  historia?: TrackHistory;
 }) {
   const t = item.track;
   if (!t) return null;
@@ -129,20 +168,33 @@ function TrackRow({
       <span className="label-mono num-tabular text-mute group-hover:text-acid transition-colors">
         {pad(index, 4)}
       </span>
-      <div className="w-10 h-10 bg-ink-3 ring-1 ring-rule overflow-hidden">
+      {/* Medida fija, asi que `width`/`height` y no `fill`: `fill` exige que el
+          contenedor sea `relative` --este no lo era-- y su `sizes` estaba
+          copiado de una rejilla, con lo que Next servia una imagen para un
+          quinto del ancho de pantalla para pintarla a cuarenta pixeles. */}
+      <div className="h-10 w-10 overflow-hidden rounded-md bg-ink-3 ring-1 ring-rule">
         {art && (
           <Image
             src={art}
             alt=""
-            fill
-            sizes="(min-width:1024px) 20vw, (min-width:640px) 33vw, 50vw"
-            className="object-cover"
+            width={80}
+            height={80}
+            className="h-full w-full object-cover"
           />
         )}
       </div>
       <div className="min-w-0">
         <p className="font-serif text-base text-cream truncate flex items-center gap-2">
-          <span className="truncate">{t.name}</span>
+          {clave && historia ? (
+            <Link
+              href={`/escucha/cancion/${encodeURIComponent(clave)}`}
+              className="truncate transition-colors hover:text-acid"
+            >
+              {t.name}
+            </Link>
+          ) : (
+            <span className="truncate">{t.name}</span>
+          )}
           {t.explicit && (
             <span className="label-mono text-[9px] text-mute ring-1 ring-rule px-1 leading-4 shrink-0">
               E
@@ -159,8 +211,24 @@ function TrackRow({
       <p className="hidden md:block font-mono text-xs text-mute num-tabular text-right">
         {formatShortDuration(t.duration_ms)}
       </p>
-      <p className="font-mono text-[11px] text-mute num-tabular text-right">
-        {added}
+      <p className="dato-mono text-right text-mute">
+        {/* Lo que guardas frente a lo que suena. Sin historia se dice, no se
+            pinta un cero: «nunca» y «cero veces» son la misma cosa, pero un
+            cero parece medido y esto es una ausencia. */}
+        {historia ? (
+          <>
+            <span className="block text-cream-dim">
+              {historia.plays.toLocaleString("es")}{" "}
+              {historia.plays === 1 ? "vez" : "veces"}
+            </span>
+            <span className="block">{added}</span>
+          </>
+        ) : (
+          <>
+            <span className="block text-mute">nunca sonó</span>
+            <span className="block">{added}</span>
+          </>
+        )}
       </p>
     </li>
   );
