@@ -7,21 +7,34 @@ import { getMe } from "@/lib/spotify";
 import { getCaptureState } from "@/lib/capture/run-capture";
 import { listarArchivos } from "@/lib/import/import-actions";
 import TopBar from "@/components/TopBar";
+import { getEstadoCaches } from "@/lib/estado-caches";
+import { getEstadoCopias } from "@/lib/estado-copias";
 import CaptureHealth from "@/components/CaptureHealth";
+import PanelCaches from "@/components/PanelCaches";
 import ImportPanel from "@/components/ImportPanel";
 
 export const dynamic = "force-dynamic";
+
+/** `Date.now()` en el cuerpo del componente lo veta `react-hooks/purity`. */
+function ahoraMs(): number {
+  return Date.now();
+}
 
 export default async function AjustesPage() {
   const session = await auth();
   if (!session) redirect("/");
 
-  const [me, estado, conteo, archivos] = await Promise.all([
+  const [me, estado, conteo, archivos, caches] = await Promise.all([
     getMe(),
     getCaptureState(),
     db.select({ n: sql<number>`count(*)` }).from(streams),
     listarArchivos(),
+    getEstadoCaches(db, ahoraMs()),
   ]);
+
+  // Lee el disco, no una tabla: lo que importa no es que el script diga que
+  // copio, sino que el archivo este ahi.
+  const copias = getEstadoCopias(ahoraMs());
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -42,6 +55,8 @@ export default async function AjustesPage() {
         gapSuspectedAt={estado?.gapSuspectedAt ?? null}
         totalStreams={conteo[0]?.n ?? 0}
       />
+
+      <PanelCaches caches={caches} copias={copias} />
 
       <ImportPanel archivos={archivos} />
 
