@@ -1,6 +1,11 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { streams, topSnapshots } from "@/db/schema";
 import { contadas, type Db } from "./shared";
+import { normalizeName } from "./normalize";
+import {
+  construirEvolucion,
+  type Evolucion,
+} from "./evolucion-spotify";
 
 export type SpotifyRange = "short_term" | "medium_term" | "long_term";
 export type Entidad = "artists" | "tracks";
@@ -154,4 +159,47 @@ export async function contarTomas(db: Db): Promise<number> {
     SELECT COUNT(DISTINCT ${topSnapshots.takenAt}) AS n FROM ${topSnapshots}
   `)[0];
   return f?.n ?? 0;
+}
+
+/**
+ * Evolución del ranking de Spotify a lo largo de las tomas guardadas.
+ *
+ * Las imágenes salen de la toma más reciente, que es de donde sale también la
+ * lista de seguidos: pedirlas aparte sería una llamada por artista para algo
+ * que ya está en la base.
+ */
+export async function getEvolucion(
+  db: Db,
+  entidad: Entidad,
+  timeRange: SpotifyRange,
+  profundidad = 10,
+): Promise<Evolucion & { imagenes: Record<string, string> }> {
+  const filas = await db
+    .select({ takenAt: topSnapshots.takenAt, payloadJson: topSnapshots.payloadJson })
+    .from(topSnapshots)
+    .where(
+      and(
+        eq(topSnapshots.entity, entidad),
+        eq(topSnapshots.timeRange, timeRange),
+      ),
+    )
+    .orderBy(topSnapshots.takenAt);
+
+  const porToma = filas.map((f) => entradasDe(f.payloadJson));
+
+  const evolucion = construirEvolucion(
+    filas.map((f, i) => ({
+      takenAt: f.takenAt,
+      nombres: porToma[i].map((e) => e.name),
+    })),
+    profundidad,
+    normalizeName,
+  );
+
+  const imagenes: Record<string, string> = {};
+  for (const e of porToma[porToma.length - 1] ?? []) {
+    if (e.imagen) imagenes[normalizeName(e.name)] = e.imagen;
+  }
+
+  return { ...evolucion, imagenes };
 }

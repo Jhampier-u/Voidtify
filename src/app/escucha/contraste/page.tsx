@@ -6,6 +6,7 @@ import { getMe } from "@/lib/spotify";
 import { resolveTimeZone, localParts } from "@/lib/stats/local-time";
 import {
   getContraste,
+  getEvolucion,
   contarTomas,
   type Contraste,
   type Entidad,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/stats/snapshots";
 import TopBar from "@/components/TopBar";
 import Miniatura from "@/components/stats/Miniatura";
+import EvolucionRanking from "@/components/stats/EvolucionRanking";
 import { normalizeName } from "@/lib/stats/normalize";
 
 export const dynamic = "force-dynamic";
@@ -184,13 +186,29 @@ export default async function Contraste({
   const timeZone = resolveTimeZone(process.env);
   const hoy = localParts(ahoraMs(), timeZone).localDate;
 
-  const [me, tomas, ...contrastes] = await Promise.all([
+  const [me, tomas, evolucion, ...contrastes] = await Promise.all([
     getMe(),
     contarTomas(db),
+    // La ventana corta es la unica que se mueve de verdad: en las tomas
+    // guardadas, trece de los veinte primeros cambiaron. La larga apenas se
+    // altera, asi que una linea suya seria plana y no diria nada.
+    getEvolucion(db, entidad, "short_term", 10),
     ...RANGOS.map((r) => getContraste(db, entidad, r, hoy)),
   ]);
 
   const disponibles = contrastes.filter((c): c is Contraste => c !== null);
+
+  // Solo enlaza lo que existe en tu historial; lo demas no tiene ficha.
+  const base = entidad === "artists" ? "/escucha/artista" : "/escucha/cancion";
+  const clavesPropias = new Map(
+    disponibles.flatMap((c) =>
+      c.propio.map((p) => [normalizeName(p.name), p.key] as const),
+    ),
+  );
+  const hrefPor = (nombre: string) => {
+    const clave = clavesPropias.get(normalizeName(nombre));
+    return clave ? `${base}/${encodeURIComponent(clave)}` : undefined;
+  };
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -238,6 +256,27 @@ export default async function Contraste({
           lo que aparece en una lista y no en la otra.
         </p>
       </section>
+
+      {evolucion.tomas.length > 1 && (
+        <section className="px-8 py-12 hairline-b">
+          <div className="mb-6 flex items-baseline justify-between gap-4 flex-wrap">
+            <h2 className="display-italic text-3xl">Cómo se ha movido</h2>
+            <p className="dato-mono text-mute">
+              últimas 4 semanas según Spotify
+            </p>
+          </div>
+          <p className="font-serif italic text-cream-dim mb-8 max-w-2xl">
+            Esto es lo único que ve cambiar el ranking de Spotify. Él lo
+            recalcula y sobrescribe; sin las copias que guarda la captura, no
+            habría forma de saber qué cambió.
+          </p>
+          <EvolucionRanking
+            evolucion={evolucion}
+            imagenes={evolucion.imagenes}
+            hrefPor={hrefPor}
+          />
+        </section>
+      )}
 
       {disponibles.length === 0 ? (
         <section className="px-8 py-24">
