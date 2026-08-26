@@ -18,10 +18,13 @@ export default function StatTiles({ tiles }: { tiles: Tile[] }) {
       {tiles.map((t, i) => (
         <div
           key={t.label}
-          className="bg-ink px-5 py-6 rise"
+          className="group bg-ink px-5 py-6 rise
+                     transition-colors duration-200 hover:bg-ink-2"
           style={{ animationDelay: `${i * 60}ms` }}
         >
-          <dt className="label-mono text-mute mb-3">{t.label}</dt>
+          <dt className="label-mono text-mute mb-3 transition-colors duration-200 group-hover:text-cream-dim">
+            {t.label}
+          </dt>
           <dd
             className={`num-tabular text-[clamp(1.6rem,3.4vw,2.6rem)] leading-none ${
               t.acento ? "text-acid" : "text-cream"
