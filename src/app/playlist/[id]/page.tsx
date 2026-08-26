@@ -21,7 +21,9 @@ export default async function PlaylistPage({
   params: Promise<{ id: string }>;
 }) {
   const session = await auth();
-  if (!session) redirect("/");
+  // A /biblioteca directamente: «/» es la portada de estadisticas y sin
+  // sesion redirige aqui de todos modos, asi que ir por ella eran dos saltos.
+  if (!session) redirect("/biblioteca");
 
   const { id } = await params;
 
