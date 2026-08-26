@@ -1,6 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
 import { duracion } from "@/lib/formato";
+import Miniatura from "./Miniatura";
 
 type Entrada = { key: string; name: string; plays: number; ms: number };
 
@@ -9,9 +9,9 @@ type Entrada = { key: string; name: string; plays: number; ms: number };
  *
  * La lista plana anterior daba a las diez filas el mismo peso, y con tres
  * columnas idénticas al lado el resultado se leía como una tabla, no como un
- * top. Aquí el primero ocupa lo que merece, los cuatro siguientes van con foto
- * mediana y el resto en filas compactas: la misma información, con un recorrido
- * para el ojo.
+ * top. Aquí el primero ocupa lo que merece, los cuatro siguientes llevan foto
+ * mediana y el resto una pequeña: la misma información, con un recorrido para
+ * el ojo.
  *
  * Las fotos llegan de `artist_imagen`, que la captura rellena por lotes. Que
  * falten es el estado normal durante los primeros días, así que el hueco tiene
@@ -74,7 +74,7 @@ export default function TopArtistas({
               posicion={i + 6}
               url={imagenes[e.key]}
               max={max}
-              lado={0}
+              lado={38}
             />
           </li>
         ))}
@@ -101,7 +101,7 @@ function Destacado({ entrada, url }: { entrada: Entrada; url?: string }) {
                    group-hover:bg-acid/[0.12]"
       />
 
-      <Foto nombre={entrada.name} url={url} lado={104} redondeo="rounded-xl" />
+      <Miniatura nombre={entrada.name} url={url} lado={104} redondeo="rounded-2xl" />
 
       <span className="relative min-w-0 flex-1">
         <span className="label-mono text-acid">01</span>
@@ -136,20 +136,16 @@ function Fila({
   return (
     <Link
       href={`/escucha/artista/${encodeURIComponent(entrada.key)}`}
-      className="group relative flex items-center gap-3 overflow-hidden rounded-lg
-                 px-2 py-2 hairline-b
-                 transition-transform duration-200 ease-out hover:translate-x-1"
+      className="group relative flex items-center gap-3 overflow-hidden rounded-xl
+                 px-2 py-1.5 transition-[transform,background-color] duration-200
+                 ease-out hover:translate-x-1 hover:bg-ink-2/50"
     >
       <span
         aria-hidden
-        className="absolute inset-y-0 left-0 bg-acid/10 transition-colors
-                   duration-200 group-hover:bg-acid/25"
+        className="absolute inset-y-1 left-0 rounded-r-full opacity-70
+                   bg-gradient-to-r from-acid/25 via-acid/12 to-acid/[0.03]
+                   transition-opacity duration-200 group-hover:opacity-100"
         style={{ width: `${(entrada.plays / max) * 100}%` }}
-      />
-      <span
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-[2px] origin-center scale-y-0 bg-acid
-                   transition-transform duration-200 group-hover:scale-y-100"
       />
 
       <span className="relative label-mono num-tabular w-6 shrink-0 text-mute
@@ -157,9 +153,7 @@ function Fila({
         {String(posicion).padStart(2, "0")}
       </span>
 
-      {lado > 0 && (
-        <Foto nombre={entrada.name} url={url} lado={lado} redondeo="rounded-lg" />
-      )}
+      <Miniatura nombre={entrada.name} url={url} lado={lado} />
 
       <span className="relative min-w-0 flex-1 truncate font-serif
                        transition-colors duration-200 group-hover:text-acid">
@@ -175,57 +169,5 @@ function Fila({
         </span>
       </span>
     </Link>
-  );
-}
-
-/**
- * Foto del artista, o sus iniciales mientras no la haya.
- *
- * Iniciales y no un rectángulo gris: el relleno de la caché va por lotes y
- * puede tardar días, así que el estado «todavía no» será el habitual durante
- * un tiempo y tiene que parecer una decisión.
- */
-function Foto({
-  nombre,
-  url,
-  lado,
-  redondeo,
-}: {
-  nombre: string;
-  url?: string;
-  lado: number;
-  redondeo: string;
-}) {
-  const iniciales = nombre
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0] ?? "")
-    .join("")
-    .toUpperCase();
-
-  return (
-    <span
-      style={{ width: lado, height: lado }}
-      className={`relative grid shrink-0 place-items-center overflow-hidden
-                  bg-ink-3 ring-1 ring-rule ${redondeo}`}
-    >
-      {url ? (
-        <Image
-          src={url}
-          alt=""
-          width={lado * 2}
-          height={lado * 2}
-          className="h-full w-full object-cover transition-transform duration-500
-                     group-hover:scale-105"
-        />
-      ) : (
-        <span
-          className="font-mono text-mute"
-          style={{ fontSize: Math.max(10, lado / 4) }}
-        >
-          {iniciales}
-        </span>
-      )}
-    </span>
   );
 }

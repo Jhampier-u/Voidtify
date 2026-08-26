@@ -16,7 +16,8 @@ import RangePicker from "@/components/stats/RangePicker";
 import StatTiles from "@/components/stats/StatTiles";
 import TopList from "@/components/stats/TopList";
 import TopArtistas from "@/components/stats/TopArtistas";
-import { getImagenesDeArtistas } from "@/lib/stats/imagenes";
+import { getImagenesDeArtistas, getCaratulas } from "@/lib/stats/imagenes";
+import Miniatura from "@/components/stats/Miniatura";
 import HourClock from "@/components/stats/HourClock";
 import WeekdayBars from "@/components/stats/WeekdayBars";
 import MonthlyChart from "@/components/stats/MonthlyChart";
@@ -91,10 +92,12 @@ export default async function Portada({
 
   // Depende de los tops, asi que va despues del Promise.all y no dentro: solo
   // hacen falta las fotos de los diez que se van a pintar.
-  const imagenesArtistas = await getImagenesDeArtistas(
-    db,
-    artistas.map((a) => a.key),
-  );
+  const [imagenesArtistas, caratulasCanciones, caratulasAlbumes] =
+    await Promise.all([
+      getImagenesDeArtistas(db, artistas.map((a) => a.key)),
+      getCaratulas(db, "cancion", canciones.map((c) => c.key)),
+      getCaratulas(db, "album", albumes.map((a) => a.key)),
+    ]);
 
   const minutos = Math.round(totals.msTotal / 60000);
   const vacio = totals.reproducciones === 0;
@@ -109,8 +112,8 @@ export default async function Portada({
 
       {/* ---------------- Cifra protagonista ---------------- */}
       <section className="px-8 pt-16 pb-12 hairline-b">
-        <div className="grid grid-cols-12 gap-6 items-end">
-          <div className="col-span-12 lg:col-span-7 rise">
+        <div className="grid grid-cols-12 gap-8 items-end">
+          <div className="col-span-12 lg:col-span-5 rise">
             <p className="label-mono text-acid mb-6">{range.label}</p>
             <p
               className="display num-tabular text-[clamp(4rem,15vw,12rem)] text-acid leading-[0.82]"
@@ -126,9 +129,60 @@ export default async function Portada({
             </p>
           </div>
 
+          {/* El hueco entre la cifra y el reloj eran novecientos pixeles de
+              nada en un monitor ancho. Aqui van los dos titulares que hacen que
+              el numero signifique algo: quien mandó y cuanto llevas seguido. */}
           <div
-            className="col-span-12 lg:col-span-5 flex justify-center lg:justify-end rise"
-            style={{ animationDelay: "120ms" }}
+            className="col-span-12 lg:col-span-4 flex flex-col gap-3 rise"
+            style={{ animationDelay: "90ms" }}
+          >
+            {artistas[0] && (
+              <Link
+                href={`/escucha/artista/${encodeURIComponent(artistas[0].key)}`}
+                className="group flex items-center gap-4 rounded-2xl bg-ink-2/40 p-4
+                           ring-1 ring-rule transition-[background-color,box-shadow]
+                           duration-300 hover:bg-ink-2 hover:ring-acid/40"
+              >
+                <Miniatura
+                  nombre={artistas[0].name}
+                  url={imagenesArtistas[artistas[0].key]}
+                  lado={64}
+                  redondeo="rounded-xl"
+                />
+                <span className="min-w-0">
+                  <span className="label-mono text-mute">Quien mandó</span>
+                  <span className="mt-1 block truncate font-serif text-xl transition-colors duration-200 group-hover:text-acid">
+                    {artistas[0].name}
+                  </span>
+                  <span className="label-mono normal-case text-mute num-tabular">
+                    {artistas[0].plays.toLocaleString("es")} veces ·{" "}
+                    {duracion(artistas[0].ms)}
+                  </span>
+                </span>
+              </Link>
+            )}
+
+            {rachas.actual > 0 && (
+              <div className="rounded-2xl bg-ink-2/40 p-4 ring-1 ring-rule">
+                <span className="label-mono text-mute">Sin fallar un día</span>
+                <p className="mt-1 flex items-baseline gap-2">
+                  <span className="display num-tabular text-4xl text-acid">
+                    {rachas.actual.toLocaleString("es")}
+                  </span>
+                  <span className="font-serif italic text-cream-dim">
+                    días seguidos
+                  </span>
+                </p>
+                <span className="label-mono normal-case text-mute num-tabular">
+                  tu récord son {rachas.maxima.toLocaleString("es")}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div
+            className="col-span-12 lg:col-span-3 flex justify-center lg:justify-end rise"
+            style={{ animationDelay: "180ms" }}
           >
             <HourClock buckets={horas} />
           </div>
@@ -204,12 +258,14 @@ export default async function Portada({
               entradas={canciones}
               vacio="Nada en este rango."
               hrefBase="/escucha/cancion"
+              imagenes={caratulasCanciones}
             />
             <TopList
               titulo="Álbumes"
               entradas={albumes}
               vacio="Nada en este rango."
               hrefBase="/escucha/album"
+              imagenes={caratulasAlbumes}
             />
           </section>
 

@@ -1,5 +1,5 @@
-import { inArray, isNotNull, and } from "drizzle-orm";
-import { artistImagen } from "@/db/schema";
+import { inArray, isNotNull, and, eq } from "drizzle-orm";
+import { artistImagen, caratula } from "@/db/schema";
 import type { Db } from "./shared";
 
 /**
@@ -20,6 +20,35 @@ export async function getImagenesDeArtistas(
     .from(artistImagen)
     .where(
       and(inArray(artistImagen.artistKey, claves), isNotNull(artistImagen.url)),
+    );
+
+  const salida: Record<string, string> = {};
+  for (const f of filas) if (f.url) salida[f.clave] = f.url;
+  return salida;
+}
+
+/**
+ * Carátulas ya resueltas de un tipo, indexadas por clave.
+ *
+ * Mismo criterio que las fotos de artista: solo devuelve las que existen, para
+ * que quien pinta distinga «no la tengo» de una url vacía.
+ */
+export async function getCaratulas(
+  db: Db,
+  tipo: "cancion" | "album",
+  claves: string[],
+): Promise<Record<string, string>> {
+  if (claves.length === 0) return {};
+
+  const filas = await db
+    .select({ clave: caratula.clave, url: caratula.url })
+    .from(caratula)
+    .where(
+      and(
+        eq(caratula.tipo, tipo),
+        inArray(caratula.clave, claves),
+        isNotNull(caratula.url),
+      ),
     );
 
   const salida: Record<string, string> = {};

@@ -167,6 +167,18 @@ export const SCHEMA_SQL = `
   -- ademas de la url porque las urls del CDN caducan y desde el id se vuelve a
   -- pedir la foto sin repetir la busqueda.
   -- (Sin acentos graves aqui dentro: cerrarian la plantilla de cadena.)
+  -- Caratula de una cancion o de un album. Ambas salen del mismo sitio -- el
+  -- album de la pista -- asi que comparten tabla y se distinguen por tipo.
+  -- Una url a NULL significa "buscada y no encontrada".
+  -- (Sin acentos graves aqui dentro: cerrarian la plantilla de cadena.)
+  CREATE TABLE IF NOT EXISTS caratula (
+    tipo       TEXT NOT NULL,
+    clave      TEXT NOT NULL,
+    url        TEXT,
+    fetched_at INTEGER NOT NULL,
+    PRIMARY KEY (tipo, clave)
+  );
+
   CREATE TABLE IF NOT EXISTS artist_imagen (
     artist_key TEXT PRIMARY KEY,
     spotify_id TEXT,

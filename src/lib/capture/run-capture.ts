@@ -15,6 +15,10 @@ import {
   rellenarImagenesEnLote,
   type ArtistaSpotify,
 } from "./rellenar-imagenes";
+import {
+  rellenarCaratulasEnLote,
+  type PistaSpotify,
+} from "./rellenar-caratulas";
 
 const FILA = 1;
 const LIMITE = 50;
@@ -31,6 +35,8 @@ export type CaptureResult = {
   generos: number;
   /** Fotos de artista resueltas en esta pasada. */
   imagenes: number;
+  /** Caratulas de cancion y album resueltas en esta pasada. */
+  caratulas: number;
   message?: string;
 };
 
@@ -73,6 +79,18 @@ async function guardarEstado(campos: {
  * "ejecutar ahora" es una acción deliberada del usuario y debe responder
  * siempre.
  */
+/**
+ * Pide una pista por su id.
+ *
+ * De una en una y no en lote: `/tracks?ids=` devuelve 403 para esta
+ * aplicacion, aunque `/tracks/{id}` siga dando 200.
+ */
+async function pedirPista(id: string): Promise<PistaSpotify | null> {
+  return spotifyFetchHeadless<PistaSpotify>(`/tracks/${id}`, {
+    cache: "no-store",
+  });
+}
+
 /** Busca un artista por nombre con el cliente sin cookie del cron. */
 async function buscarArtista(nombre: string): Promise<ArtistaSpotify[]> {
   const q = encodeURIComponent(nombre);
@@ -98,6 +116,7 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
         snapshots: 0,
         generos: 0,
         imagenes: 0,
+        caratulas: 0,
         message: "Otra ejecución acaba de correr.",
       };
     }
@@ -144,6 +163,19 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
       console.warn("[captura] no se pudieron rellenar imagenes", e);
     }
 
+    // Caratulas de cancion y album. Salen las dos del album de la pista, y
+    // Spotify admite cincuenta ids por llamada: son dos peticiones en total,
+    // mucho mas barato que las fotos de artista.
+    let caratulas = 0;
+    try {
+      for (const tipo of ["cancion", "album"] as const) {
+        caratulas += (await rellenarCaratulasEnLote(db, tipo, pedirPista))
+          .conCaratula;
+      }
+    } catch (e) {
+      console.warn("[captura] no se pudieron rellenar caratulas", e);
+    }
+
     const maxTs = filas.reduce((max, f) => (f.ts > max ? f.ts : max), 0);
     const nuevoCursor = maxTs > 0 ? maxTs : (estado?.lastPlayedAt ?? null);
 
@@ -175,6 +207,7 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
       snapshots,
       generos,
       imagenes,
+      caratulas,
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -192,6 +225,7 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
       snapshots: 0,
       generos: 0,
       imagenes: 0,
+      caratulas: 0,
       message,
     };
   }

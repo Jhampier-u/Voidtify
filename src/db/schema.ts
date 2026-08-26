@@ -206,6 +206,26 @@ export const artistGenres = sqliteTable("artist_genres", {
 });
 
 /**
+ * Caratula de una cancion o de un album.
+ *
+ * Ambas salen del mismo sitio --el album de la pista-- asi que comparten tabla
+ * y se distinguen por `tipo`. Una `url` a null significa "buscada y no
+ * encontrada", para no repetir la consulta en cada pasada.
+ */
+export const caratula = sqliteTable(
+  "caratula",
+  {
+    tipo: text("tipo").notNull(),
+    clave: text("clave").notNull(),
+    url: text("url"),
+    fetchedAt: integer("fetched_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.tipo, t.clave] })],
+);
+
+export type CaratulaRow = typeof caratula.$inferSelect;
+
+/**
  * Foto del artista, resuelta por nombre contra el buscador de Spotify.
  *
  * `spotifyId` a null significa "buscado y no encontrado". Se guarda el id
