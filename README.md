@@ -109,6 +109,35 @@ Si quieres compartir tags y smart playlists entre máquinas, exporta/importa el 
 
 ---
 
+## El sistema tipográfico
+
+Dos utilidades de mono, y la diferencia importa:
+
+| Clase | Para qué | Cómo |
+|---|---|---|
+| `label-mono` | rótulos: nombres de sección y de campo | mayúsculas, 11 px, tracking `0.14em` |
+| `dato-mono` | cifras, unidades y fechas | sin mayúsculas, 11 px, tracking `0.01em`, tabular |
+
+Estaban juntas y salió caro. El `text-transform: uppercase` de los rótulos
+convertía el «237m» de minutos en **237M**, que junto a 52 reproducciones se lee
+como doscientos treinta y siete millones. Y el tracking amplio, que en una
+etiqueta corta decora, separa los dígitos hasta hacer difícil comparar dos cifras
+de un vistazo.
+
+Regla: **si contiene un número o una unidad, es `dato-mono`.**
+
+### Contraste
+
+`--color-mute` es el color de casi toda la información secundaria, a 11 px. Con
+su valor original (`#6b6358`) daba **3,34:1** sobre el fondo, por debajo del
+4,5:1 que pide WCAG AA para texto normal. Se subió a `#83796b`, que da 4,62:1 con
+el mismo tono. Lo mismo con `--color-blood`, el color de los errores, que es lo
+que menos se puede permitir no leerse.
+
+`--color-rule` está en 1,30:1 y **no debe usarse nunca para texto que signifique
+algo**. Vale para separadores decorativos —un `·` entre dos datos— y para
+controles inactivos, que WCAG exime. Cualquier otro uso es texto invisible.
+
 ## Quién puede entrar
 
 La app es de una sola persona, pero el botón de entrar con Spotify lo puede

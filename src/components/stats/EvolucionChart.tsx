@@ -63,7 +63,7 @@ export default function EvolucionChart({
           <span className="text-rule"> · </span>
           {granularidad === "dia" ? "por días" : "por meses"}
         </p>
-        <p className="label-mono normal-case text-mute">
+        <p className="dato-mono text-mute">
           pico · <span className="text-acid">{pico.etiqueta}</span> ·{" "}
           {pico.plays.toLocaleString("es")}
         </p>
@@ -139,7 +139,7 @@ export default function EvolucionChart({
                        px-3 py-2 ring-1 ring-rule"
             style={{ left: `${(activo! / Math.max(1, puntos.length - 1)) * 100}%` }}
           >
-            <span className="label-mono normal-case text-mute">{p.etiqueta}</span>
+            <span className="dato-mono text-mute">{p.etiqueta}</span>
             <span className="num-tabular ml-2 font-mono text-sm text-acid">
               {p.plays.toLocaleString("es")}
             </span>
@@ -148,10 +148,10 @@ export default function EvolucionChart({
       </div>
 
       <div className="mt-2 flex justify-between">
-        <span className="label-mono normal-case text-mute">
+        <span className="dato-mono text-mute">
           {puntos[0].etiqueta}
         </span>
-        <span className="label-mono normal-case text-mute">
+        <span className="dato-mono text-mute">
           {puntos[puntos.length - 1].etiqueta}
         </span>
       </div>

@@ -111,7 +111,7 @@ function Destacado({ entrada, url }: { entrada: Entrada; url?: string }) {
         >
           {entrada.name}
         </span>
-        <span className="mt-2 block label-mono normal-case text-mute num-tabular">
+        <span className="mt-2 block dato-mono text-mute num-tabular">
           {entrada.plays.toLocaleString("es")} reproducciones ·{" "}
           {duracion(entrada.ms)}
         </span>

@@ -31,7 +31,7 @@ function variacion(ahora: number, antes: number): number | null {
 
 function Delta({ valor }: { valor: number | null }) {
   if (valor === null) {
-    return <span className="label-mono text-rule">sin comparación</span>;
+    return <span className="label-mono text-mute">sin comparación</span>;
   }
   const pct = Math.round(valor * 100);
   if (pct === 0) return <span className="label-mono text-mute">igual</span>;

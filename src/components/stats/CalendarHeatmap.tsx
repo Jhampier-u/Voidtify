@@ -236,7 +236,7 @@ export default function CalendarHeatmap({ buckets }: { buckets: Bucket[] }) {
           ))}
         </svg>
         <span className="label-mono text-mute">más</span>
-        <span className="label-mono text-rule ml-2">
+        <span className="label-mono text-mute ml-2">
           pincha un día para ver qué sonó
         </span>
       </div>

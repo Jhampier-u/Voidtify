@@ -6,10 +6,15 @@
   --color-ink-3: #1f1a17;
   --color-cream: #f4ede4;
   --color-cream-dim: #c4bdb2;
-  --color-mute: #6b6358;
+  /* Subido de #6b6358 (3,34:1) a 4,61:1 sobre el fondo. Es el color de casi
+     toda la informacion secundaria y se usa a 11 px, que es texto normal: por
+     debajo de 4,5:1 no cumple WCAG AA y se nota al leer. */
+  --color-mute: #83796b;
   --color-rule: #2a2521;
   --color-acid: #d2ff3a;
-  --color-blood: #c1392b;
+  /* Igual: de #c1392b (3,66:1) a 4,61:1. Es el color de los errores, que es
+     justo lo que peor se puede permitir no leerse. */
+  --color-blood: #de4131;
 
   /* Tag palette — distinct, paired with editorial dark base. */
   --color-tag-acid: #d2ff3a;
@@ -85,11 +90,24 @@ body::before {
     letter-spacing: -0.045em;
     line-height: 0.88;
   }
+  /* Etiquetas: nombres de seccion y de campo. Mayusculas y tracking amplio son
+     correctos aqui, pero a 10 px y 0.18em obligaban a acercarse a la pantalla.
+     Solo para texto que rotula algo. */
   .label-mono {
     font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.18em;
+    font-size: 11px;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
+    font-weight: 500;
+  }
+  /* Datos: cifras, unidades y fechas. Sin mayusculas ni tracking, porque ahi no
+     decoran: convertian «237m» en «237M», que se lee como millones, y separaban
+     los digitos hasta hacer dificil comparar dos numeros de un vistazo. */
+  .dato-mono {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
     font-weight: 500;
   }
   .hairline {

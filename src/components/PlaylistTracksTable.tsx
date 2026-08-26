@@ -1261,7 +1261,7 @@ function TrackRow({
           {artists}
         </p>
         {historia !== undefined && (
-          <p className="label-mono normal-case text-[10px] text-mute mt-1 flex gap-3 flex-wrap">
+          <p className="dato-mono text-[10px] text-mute mt-1 flex gap-3 flex-wrap">
             <span className="num-tabular text-cream-dim">
               {historia.plays.toLocaleString("es")}{" "}
               {historia.plays === 1 ? "vez" : "veces"}

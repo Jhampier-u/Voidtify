@@ -159,7 +159,7 @@ export default async function Portada({
                   <span className="mt-1 block truncate font-serif text-xl transition-colors duration-200 group-hover:text-acid">
                     {artistas[0].name}
                   </span>
-                  <span className="label-mono normal-case text-mute num-tabular">
+                  <span className="dato-mono text-mute num-tabular">
                     {artistas[0].plays.toLocaleString("es")} veces ·{" "}
                     {duracion(artistas[0].ms)}
                   </span>
@@ -178,7 +178,7 @@ export default async function Portada({
                     días seguidos
                   </span>
                 </p>
-                <span className="label-mono normal-case text-mute num-tabular">
+                <span className="dato-mono text-mute num-tabular">
                   tu récord son {rachas.maxima.toLocaleString("es")}
                 </span>
               </div>

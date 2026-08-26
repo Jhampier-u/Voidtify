@@ -53,7 +53,7 @@ export default function SkipPanel({
       <div className="lg:col-span-2">
         <p className="label-mono text-mute mb-4">
           Artistas que más saltas
-          <span className="text-rule"> · mínimo 20 escuchas</span>
+          <span className="text-mute"> · mínimo 20 escuchas</span>
         </p>
 
         {artistas.length === 0 ? (

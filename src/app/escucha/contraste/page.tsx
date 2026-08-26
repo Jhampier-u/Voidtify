@@ -44,7 +44,7 @@ function Columna({
   return (
     <div>
       <p className="label-mono text-mute mb-1">{titulo}</p>
-      <p className="label-mono text-rule mb-4">{nota}</p>
+      <p className="label-mono text-mute mb-4">{nota}</p>
       <ol>
         {items.map((x, i) => {
           const soloAqui = !otros.has(normal(x.name));
