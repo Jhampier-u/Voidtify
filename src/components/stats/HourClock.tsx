@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+
 type Bucket = { hour: number; plays: number; ms: number };
 
 const TAMANO = 260;
@@ -20,11 +24,20 @@ function punto(hora: number, radio: number) {
  * Un histograma de barras obliga a leer el eje para entender que las 3 de la
  * madrugada están al lado de las 23:00. En un círculo esa continuidad es
  * evidente: la madrugada y la noche se tocan, que es como funciona un día.
+ *
+ * El centro muestra tu hora punta, y la hora que señalas cuando señalas alguna.
+ * Así el dato de cada radio se lee sin sacar una etiqueta flotante que tape la
+ * esfera.
  */
 export default function HourClock({ buckets }: { buckets: Bucket[] }) {
+  const [activa, setActiva] = useState<number | null>(null);
+
   const max = Math.max(1, ...buckets.map((b) => b.plays));
   const pico = buckets.reduce((a, b) => (b.plays > a.plays ? b : a), buckets[0]);
   const total = buckets.reduce((n, b) => n + b.plays, 0);
+
+  const mostrada =
+    activa === null ? pico : (buckets.find((b) => b.hour === activa) ?? pico);
 
   return (
     <figure className="flex flex-col items-center gap-4">
@@ -33,8 +46,8 @@ export default function HourClock({ buckets }: { buckets: Bucket[] }) {
         className="w-full max-w-[260px]"
         role="img"
         aria-label={`Reproducciones por hora del día. Máximo a las ${pico.hour}h.`}
+        onMouseLeave={() => setActiva(null)}
       >
-        {/* Circunferencia de referencia */}
         <circle
           cx={CENTRO}
           cy={CENTRO}
@@ -57,19 +70,50 @@ export default function HourClock({ buckets }: { buckets: Bucket[] }) {
           const a = punto(b.hour, RADIO_INTERIOR);
           const z = punto(b.hour, Math.max(RADIO_INTERIOR + 1.5, largo));
           const esPico = b.hour === pico.hour && b.plays > 0;
+          const señalada = b.hour === activa;
+
+          // Longitud real del radio, que es lo que necesita el trazo
+          // discontinuo para crecer desde dentro hacia fuera.
+          const longitud = Math.hypot(z.x - a.x, z.y - a.y);
 
           return (
-            <line
-              key={b.hour}
-              x1={a.x}
-              y1={a.y}
-              x2={z.x}
-              y2={z.y}
-              strokeWidth={7}
-              strokeLinecap="round"
-              className={esPico ? "stroke-acid" : "stroke-cream-dim"}
-              opacity={esPico ? 1 : 0.28 + (b.plays / max) * 0.5}
-            />
+            <g key={b.hour}>
+              <line
+                x1={a.x}
+                y1={a.y}
+                x2={z.x}
+                y2={z.y}
+                strokeWidth={señalada ? 9 : 7}
+                strokeLinecap="round"
+                className={`radio transition-[stroke-width] duration-150 ${
+                  señalada || esPico ? "stroke-acid" : "stroke-cream-dim"
+                }`}
+                style={
+                  {
+                    "--largo": longitud,
+                    animationDelay: `${b.hour * 22}ms`,
+                    opacity: señalada
+                      ? 1
+                      : esPico
+                        ? 1
+                        : 0.28 + (b.plays / max) * 0.5,
+                  } as React.CSSProperties
+                }
+              />
+              {/* Radio invisible y ancho, solo para el ratón: apuntar a siete
+                  píxeles inclinados es incómodo, y el area sensible llega
+                  hasta el borde para que no haya huecos muertos. */}
+              <line
+                x1={punto(b.hour, RADIO_INTERIOR - 6).x}
+                y1={punto(b.hour, RADIO_INTERIOR - 6).y}
+                x2={punto(b.hour, RADIO_EXTERIOR + 4).x}
+                y2={punto(b.hour, RADIO_EXTERIOR + 4).y}
+                strokeWidth={16}
+                stroke="transparent"
+                className="cursor-pointer"
+                onMouseEnter={() => setActiva(b.hour)}
+              />
+            </g>
           );
         })}
 
@@ -99,7 +143,7 @@ export default function HourClock({ buckets }: { buckets: Bucket[] }) {
               className="fill-acid num-tabular"
               style={{ fontSize: 26, fontWeight: 600 }}
             >
-              {String(pico.hour).padStart(2, "0")}
+              {String(mostrada.hour).padStart(2, "0")}
             </text>
             <text
               x={CENTRO}
@@ -108,7 +152,9 @@ export default function HourClock({ buckets }: { buckets: Bucket[] }) {
               className="fill-mute font-mono"
               style={{ fontSize: 7, letterSpacing: "0.14em" }}
             >
-              TU HORA
+              {activa === null
+                ? "TU HORA"
+                : `${mostrada.plays.toLocaleString("es")} VECES`}
             </text>
           </>
         )}

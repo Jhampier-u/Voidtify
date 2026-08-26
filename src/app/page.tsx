@@ -20,7 +20,8 @@ import { getImagenesDeArtistas, getCaratulas } from "@/lib/stats/imagenes";
 import Miniatura from "@/components/stats/Miniatura";
 import HourClock from "@/components/stats/HourClock";
 import WeekdayBars from "@/components/stats/WeekdayBars";
-import MonthlyChart from "@/components/stats/MonthlyChart";
+import EvolucionChart from "@/components/stats/EvolucionChart";
+import { construirSerie } from "@/lib/stats/serie";
 import CalendarHeatmap from "@/components/stats/CalendarHeatmap";
 import SkipPanel from "@/components/stats/SkipPanel";
 import ShareCards from "@/components/stats/ShareCards";
@@ -98,6 +99,10 @@ export default async function Portada({
       getCaratulas(db, "cancion", canciones.map((c) => c.key)),
       getCaratulas(db, "album", albumes.map((a) => a.key)),
     ]);
+
+  // La granularidad la decide la serie: con cuatro semanas hay dos meses, y
+  // dos puntos unidos son un segmento recto que no dice nada.
+  const serie = construirSerie(dias, meses, range.fromDate, range.toDate);
 
   const minutos = Math.round(totals.msTotal / 60000);
   const vacio = totals.reproducciones === 0;
@@ -232,7 +237,7 @@ export default async function Portada({
         <>
           {/* ---------------- Evolución ---------------- */}
           <section className="px-8 py-12 hairline-b rise">
-            <MonthlyChart buckets={meses} />
+            <EvolucionChart serie={serie} />
           </section>
 
           {/* ---------------- Rankings ---------------- */}

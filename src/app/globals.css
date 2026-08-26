@@ -144,6 +144,31 @@ body::before {
   animation: fade 1.2s ease-out both;
 }
 
+/* El area del grafico se descubre de izquierda a derecha. Se anima el ancho de
+   un rectangulo dentro de un clipPath porque una ruta SVG no se puede animar
+   con CSS, y `scaleX` sobre el clip deformaria el trazo. */
+@keyframes revelar {
+  from {
+    width: 0;
+  }
+}
+.revelar {
+  animation: revelar 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Los radios del reloj crecen desde el centro. `stroke-dashoffset` desplaza el
+   trazo discontinuo, y con el guion tan largo como la linea el efecto es que
+   sale del punto de partida. */
+@keyframes crecer-radio {
+  from {
+    stroke-dashoffset: var(--largo);
+  }
+}
+.radio {
+  stroke-dasharray: var(--largo);
+  animation: crecer-radio 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 /* Scrollbar — subtle */
 ::-webkit-scrollbar {
   width: 10px;
@@ -164,7 +189,9 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .marquee-track,
   .rise,
-  .fade-in {
+  .fade-in,
+  .revelar,
+  .radio {
     animation: none;
   }
 }

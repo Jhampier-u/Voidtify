@@ -9,7 +9,8 @@ import { getTrackDetail } from "@/lib/stats/detail";
 import TopBar from "@/components/TopBar";
 import RangePicker from "@/components/stats/RangePicker";
 import EntityHeader from "@/components/stats/EntityHeader";
-import MonthlyChart from "@/components/stats/MonthlyChart";
+import EvolucionChart from "@/components/stats/EvolucionChart";
+import { construirSerie } from "@/lib/stats/serie";
 
 export const dynamic = "force-dynamic";
 
@@ -81,8 +82,9 @@ export default async function FichaCancion({
       />
 
       <section className="px-8 py-12 rise">
-        <MonthlyChart
-          buckets={ficha.porMes.map((m) => ({ ...m, ms: 0 }))}
+        <EvolucionChart
+          serie={construirSerie([], ficha.porMes, range.fromDate, range.toDate)}
+          titulo="Cuándo la escuchaste"
         />
       </section>
 
