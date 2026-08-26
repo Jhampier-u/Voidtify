@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getHistory } from "@/lib/stats/history";
+import { getHistory, terminosDeBusqueda } from "@/lib/stats/history";
 import type { StatsRange } from "@/lib/stats/range";
 import { createTestDb } from "./helpers/test-db";
 import { seedStreams, stream } from "./helpers/seed-streams";
@@ -109,5 +109,66 @@ describe("getHistory", () => {
     const { db, sqlite } = createTestDb();
     seedStreams(sqlite, [stream({ msPlayed: 3_000 })]);
     expect((await getHistory(db, HISTORICO)).total).toBe(1);
+  });
+});
+
+describe("terminosDeBusqueda", () => {
+  it("parte en términos y normaliza", () => {
+    expect(terminosDeBusqueda("Sigur  RÓS")).toEqual(["sigur", "ros"]);
+  });
+
+  it("descarta los espacios sueltos", () => {
+    expect(terminosDeBusqueda("   ")).toEqual([]);
+    expect(terminosDeBusqueda("")).toEqual([]);
+  });
+
+  // Repetir un termino no debe multiplicar las condiciones del SQL.
+  it("no repite términos", () => {
+    expect(terminosDeBusqueda("rock rock")).toEqual(["rock"]);
+  });
+});
+
+describe("getHistory · búsqueda de varios términos", () => {
+  // Con la frase entera como un solo patron habia que escribir el nombre tal
+  // cual: este orden no existe en ninguna columna y no encontraba nada.
+  it("acepta los términos en cualquier orden", async () => {
+    const { db, sqlite } = createTestDb();
+    seedStreams(sqlite, [
+      stream({ artistName: "Slowdive", trackName: "Alison", albumName: "Souvlaki" }),
+      stream({ artistName: "Ride", trackName: "Vapour Trail", albumName: "Nowhere" }),
+    ]);
+    const h = await getHistory(db, HISTORICO, { busqueda: "alison slowdive" });
+    expect(h.rows).toHaveLength(1);
+    expect(h.rows[0].trackName).toBe("Alison");
+  });
+
+  it("cruza el título con el álbum", async () => {
+    const { db, sqlite } = createTestDb();
+    seedStreams(sqlite, [
+      stream({ artistName: "Slowdive", trackName: "Alison", albumName: "Souvlaki" }),
+      stream({ artistName: "Slowdive", trackName: "Dagger", albumName: "Souvlaki" }),
+    ]);
+    const h = await getHistory(db, HISTORICO, { busqueda: "souvlaki dagger" });
+    expect(h.rows).toHaveLength(1);
+    expect(h.rows[0].trackName).toBe("Dagger");
+  });
+
+  // Escribir mas palabras siempre debe reducir, nunca ampliar.
+  it("exige que estén todos", async () => {
+    const { db, sqlite } = createTestDb();
+    seedStreams(sqlite, [stream({ artistName: "Slowdive", trackName: "Alison" })]);
+    expect(
+      (await getHistory(db, HISTORICO, { busqueda: "alison ride" })).rows,
+    ).toHaveLength(0);
+  });
+
+  it("el total refleja la búsqueda, no el rango entero", async () => {
+    const { db, sqlite } = createTestDb();
+    seedStreams(sqlite, [
+      stream({ trackName: "Alison" }),
+      stream({ trackName: "Dagger" }),
+      stream({ trackName: "Dagger" }),
+    ]);
+    expect((await getHistory(db, HISTORICO, { busqueda: "dagger" })).total).toBe(2);
   });
 });

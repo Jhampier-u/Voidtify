@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { paginar } from "@/lib/paginar";
+import { calcularPagina, paginar } from "@/lib/paginar";
 
 const serie = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
@@ -62,5 +62,35 @@ describe("paginar", () => {
     const p = paginar(serie(20), 2, 10);
     expect(p.paginas).toBe(2);
     expect(p.items).toEqual(serie(20).slice(10));
+  });
+});
+
+describe("calcularPagina", () => {
+  it("da las mismas cuentas sin necesitar la lista", () => {
+    expect(calcularPagina(25, 3, 10)).toEqual({
+      actual: 3,
+      paginas: 3,
+      desde: 20,
+    });
+  });
+
+  it("acota igual las páginas imposibles", () => {
+    expect(calcularPagina(25, 99, 10).actual).toBe(3);
+    expect(calcularPagina(25, 0, 10).actual).toBe(1);
+    expect(calcularPagina(25, NaN, 10).actual).toBe(1);
+  });
+
+  it("un total de cero sigue siendo una página", () => {
+    expect(calcularPagina(0, 1, 10)).toEqual({
+      actual: 1,
+      paginas: 1,
+      desde: 0,
+    });
+  });
+
+  // `desde` es lo que el historial usa como OFFSET del SQL.
+  it("el desplazamiento sirve de OFFSET", () => {
+    expect(calcularPagina(1000, 1, 100).desde).toBe(0);
+    expect(calcularPagina(1000, 4, 100).desde).toBe(300);
   });
 });

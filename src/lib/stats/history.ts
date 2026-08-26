@@ -30,19 +30,46 @@ export type HistoryOptions = {
 const LIMITE_POR_DEFECTO = 100;
 
 /**
+ * Términos de una consulta, normalizados.
+ *
+ * Se exporta para poder probarlo aparte: la separación en términos decide qué
+ * encuentra el buscador, y equivocarse ahí no lanza ningún error — simplemente
+ * no aparece lo que estabas buscando.
+ */
+export function terminosDeBusqueda(busqueda: string): string[] {
+  return [
+    ...new Set(
+      normalizeName(busqueda)
+        .split(" ")
+        .filter((t) => t.length > 0),
+    ),
+  ];
+}
+
+/**
  * Filtro de búsqueda sobre las claves normalizadas.
  *
- * Se busca en `artist_key` y `track_key`, no en los nombres visibles, porque
+ * Se busca en `track_key` y `album_key`, no en los nombres visibles, porque
  * esas columnas ya están en minúsculas y sin acentos: así "SIGUR ROS" encuentra
- * "Sigur Rós" sin necesitar `COLLATE` ni normalizar en SQL.
+ * "Sigur Rós" sin necesitar `COLLATE` ni normalizar en SQL. `track_key` lleva
+ * dentro la clave del artista, de modo que buscar en ella cubre título y
+ * artista a la vez.
+ *
+ * Cada término debe aparecer, en cualquier orden y en cualquiera de los dos
+ * campos. Con la frase entera como un solo patrón había que escribir el nombre
+ * tal cual: «souvlaki slowdive» no encontraba nada, porque ese orden no existe
+ * en ninguna de las dos columnas.
  *
  * Es un `LIKE` con comodín inicial, que no puede usar índice. Con cientos de
  * miles de filas seguirá siendo un escaneo completo; si algún día molesta, la
  * respuesta es FTS5, no otro índice.
  */
-function filtroBusqueda(busqueda: string): SQL {
-  const patron = `%${normalizeName(busqueda)}%`;
-  return sql`(${streams.artistKey} LIKE ${patron} OR ${streams.trackKey} LIKE ${patron})`;
+function filtroBusqueda(terminos: string[]): SQL {
+  const condiciones = terminos.map((t) => {
+    const patron = `%${t}%`;
+    return sql`(${streams.trackKey} LIKE ${patron} OR ${streams.albumKey} LIKE ${patron})`;
+  });
+  return sql.join(condiciones, sql` AND `);
 }
 
 export async function getHistory(
@@ -53,10 +80,11 @@ export async function getHistory(
   const limite = opciones.limite ?? LIMITE_POR_DEFECTO;
   const desplazamiento = opciones.desplazamiento ?? 0;
 
-  const busqueda = opciones.busqueda?.trim();
-  const filtro = busqueda
-    ? sql`${enRango(range)} AND ${filtroBusqueda(busqueda)}`
-    : enRango(range);
+  const terminos = terminosDeBusqueda(opciones.busqueda ?? "");
+  const filtro =
+    terminos.length > 0
+      ? sql`${enRango(range)} AND ${filtroBusqueda(terminos)}`
+      : enRango(range);
 
   const total = db.all<{ n: number }>(sql`
     SELECT COUNT(*) AS n FROM ${streams} WHERE ${filtro}

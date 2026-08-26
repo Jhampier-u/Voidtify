@@ -6,6 +6,7 @@ import { getMe } from "@/lib/spotify";
 import { parseRange } from "@/lib/stats/range";
 import { resolveTimeZone } from "@/lib/stats/local-time";
 import { getHistory, getTotalesDeDias } from "@/lib/stats/history";
+import { calcularPagina } from "@/lib/paginar";
 import { getCaratulas } from "@/lib/stats/imagenes";
 import { duracion, duracionCorta, fechaLarga } from "@/lib/formato";
 import Miniatura from "@/components/stats/Miniatura";
@@ -64,19 +65,31 @@ export default async function Historial({
   const timeZone = resolveTimeZone(process.env);
   const range = parseRange(sp, ahoraMs(), timeZone);
 
-  const pagina = Math.max(1, Number(sp.p) || 1);
+  const pedida = Number(sp.p) || 1;
   const busqueda = sp.q?.trim() || undefined;
 
-  const [me, { rows, total }] = await Promise.all([
+  const [me, primera] = await Promise.all([
     getMe(),
     getHistory(db, range, {
       limite: POR_PAGINA,
-      desplazamiento: (pagina - 1) * POR_PAGINA,
+      desplazamiento: Math.max(0, (Math.floor(pedida) - 1) * POR_PAGINA),
       busqueda,
     }),
   ]);
 
-  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+  // El total solo se conoce despues de consultar, asi que la pagina se acota
+  // aqui. Solo se vuelve a consultar si la pedida no existia --«?p=999»--, que
+  // antes devolvia una lista vacia con el paginador diciendo «999 / 27».
+  const { actual, paginas } = calcularPagina(primera.total, pedida, POR_PAGINA);
+  const { rows, total } =
+    actual === Math.max(1, Math.floor(pedida) || 1)
+      ? primera
+      : await getHistory(db, range, {
+          limite: POR_PAGINA,
+          desplazamiento: (actual - 1) * POR_PAGINA,
+          busqueda,
+        });
+
   const base = { ...sp, p: undefined };
 
   // Se marca aquí qué filas abren un día nuevo, en vez de arrastrar una
@@ -113,7 +126,7 @@ export default async function Historial({
               type="search"
               name="q"
               defaultValue={busqueda ?? ""}
-              placeholder="artista o canción"
+              placeholder="artista, canción o álbum"
               className="bg-ink-2 border border-rule px-3 py-2 font-mono text-sm w-64 focus:border-acid outline-none"
             />
           </label>
@@ -201,9 +214,9 @@ export default async function Historial({
 
           {paginas > 1 && (
             <nav className="flex items-center justify-between mt-10">
-              {pagina > 1 ? (
+              {actual > 1 ? (
                 <Link
-                  href={enlace(base, { p: String(pagina - 1) })}
+                  href={enlace(base, { p: String(actual - 1) })}
                   className="label-mono hover:text-acid transition-colors"
                 >
                   ← Anterior
@@ -212,13 +225,13 @@ export default async function Historial({
                 <span />
               )}
 
-              <span className="label-mono text-mute num-tabular">
-                {pagina} / {paginas.toLocaleString("es")}
+              <span className="dato-mono text-mute">
+                {actual} de {paginas.toLocaleString("es")}
               </span>
 
-              {pagina < paginas ? (
+              {actual < paginas ? (
                 <Link
-                  href={enlace(base, { p: String(pagina + 1) })}
+                  href={enlace(base, { p: String(actual + 1) })}
                   className="label-mono hover:text-acid transition-colors"
                 >
                   Siguiente →
