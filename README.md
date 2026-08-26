@@ -135,6 +135,55 @@ La decisión vive en `src/lib/acceso.ts`, aparte del callback de Auth.js y sin
 dependencias, para que tenga tests: un control de acceso que solo se puede
 verificar iniciando sesión a mano con dos cuentas distintas no se verifica nunca.
 
+## Copias de seguridad
+
+`data/ledger.db` es lo único irrecuperable del proyecto. El volcado de Spotify
+se puede volver a pedir —tardan semanas—, pero las escuchas capturadas en vivo
+desde entonces, y las etiquetas de género acumuladas, no existen en ningún otro
+sitio.
+
+Una tarea diaria hace la copia:
+
+| | |
+|---|---|
+| Destino | `%USERPROFILE%\OneDrive\Voidtify-copias`, o `BACKUP_DIR` si está definida |
+| Formato | `ledger-YYYY-MM-DD.db.gz` — unos 41 MB frente a 148 sin comprimir |
+| Retención | 14 diarias, más la del día 1 de cada mes hasta doce meses |
+
+Se guarda en OneDrive a propósito: **una copia en el mismo disco solo protege
+de un borrado, no de un disco que falla.** Lo que la saca del equipo es lo que
+la convierte en copia de seguridad.
+
+Tres decisiones que no son evidentes:
+
+- **`VACUUM INTO`, no copiar el archivo.** La base está en modo WAL y en uso.
+  Copiarla a pelo se lleva un `.db` sin los cambios que todavía viven en el
+  `-wal`: una copia incompleta que no lo parece.
+- **Se verifica antes de darla por buena.** Se abre, se pasa `integrity_check`
+  y se comprueba que tiene tantas escuchas como el original. Si algo falla, se
+  descarta y **no se rota**, así que nunca se borra una copia vieja para dejar
+  sitio a una rota.
+- **Se le quitan las credenciales.** `spotify_credentials` guarda el
+  `refresh_token`, y esto acaba replicado en la nube. Restaurar cuesta un
+  inicio de sesión; tenerlo ahí arriba no compensa.
+
+Para lanzarla a mano, o para restaurar:
+
+```bash
+node scripts/copia-seguridad.mjs
+```
+
+```powershell
+# Restaurar: parar el servidor, descomprimir encima, volver a entrar
+.\scripts\parar-servidor.cmd
+node -e "const z=require('zlib'),f=require('fs');f.writeFileSync('data/ledger.db',z.gunzipSync(f.readFileSync(process.argv[1])))" "RUTA\ledger-2026-08-25.db.gz"
+```
+
+La rotación vive en `scripts/rotacion.mjs`, pura y con tests. Es la única parte
+que borra archivos: un fallo ahí no rompe nada visible, se lleva las copias en
+silencio y no se descubre hasta el día que hacen falta. Nunca toca un archivo
+cuyo nombre no reconozca.
+
 ## Captura de escuchas
 
 La API de Spotify no guarda tu historial: solo devuelve las **últimas 50

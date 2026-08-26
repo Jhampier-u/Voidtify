@@ -86,12 +86,24 @@ function Nueva-Tarea {
     # Solo se borra si existe: `schtasks /Delete` sobre una tarea inexistente
     # escribe en stderr, y con $ErrorActionPreference = 'Stop' eso aborta el
     # script entero en la primera instalacion limpia.
-    if (Get-ScheduledTask -TaskName $Nombre -ErrorAction SilentlyContinue) {
-        schtasks /Delete /TN $Nombre /F 2>$null | Out-Null
+    #
+    # Y todo va en try/catch porque una tarea creada en su dia con permisos
+    # elevados queda en manos del grupo Administradores: sin esto, el script
+    # muere en la primera y no llega a instalar las demas.
+    try {
+        if (Get-ScheduledTask -TaskName $Nombre -ErrorAction SilentlyContinue) {
+            schtasks /Delete /TN $Nombre /F 2>$null | Out-Null
+        }
+        schtasks /Create /TN $Nombre /XML $tmp /F | Out-Null
+        Write-Host "  $Nombre : instalada"
+    } catch {
+        Write-Host "  $Nombre : NO se pudo (hace falta administrador)" -ForegroundColor Yellow
+        $script:pendientes += $Nombre
     }
-    schtasks /Create /TN $Nombre /XML $tmp /F
     Remove-Item $tmp -Force
 }
+
+$pendientes = @()
 
 # El servidor no lleva limite de ejecucion (PT0S): esta pensado para no parar
 # nunca. Con MultipleInstancesPolicy=IgnoreNew, volver a iniciar sesion no
@@ -111,6 +123,16 @@ Nueva-Tarea `
     -Limite      'PT10M' `
     -Script      'capture.cmd'
 
+# Diaria. Con StartWhenAvailable no importa que el equipo este apagado a esa
+# hora: la recupera al encender. Es la razon de que no haga falta acertar con
+# un horario.
+Nueva-Tarea `
+    -Nombre      'Voidtify copia' `
+    -Descripcion 'Voidtify: copia de seguridad diaria de la base de escuchas, comprimida y verificada.' `
+    -Disparador  '<CalendarTrigger><StartBoundary>2026-08-25T21:00:00</StartBoundary><Enabled>true</Enabled><ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay></CalendarTrigger>' `
+    -Limite      'PT30M' `
+    -Script      'copia-seguridad.cmd'
+
 Write-Host ''
 Write-Host 'Retirando la tarea huerfana del dashboard...' -ForegroundColor Cyan
 
@@ -120,7 +142,6 @@ Write-Host 'Retirando la tarea huerfana del dashboard...' -ForegroundColor Cyan
 # porque la tarea corre oculta.
 #
 # "Juampi servidor" NO se toca: el dashboard sigue vivo y lo sigue necesitando.
-$pendiente = $false
 if (Get-ScheduledTask -TaskName 'Juampi captura' -ErrorAction SilentlyContinue) {
     # try/catch porque sin administrador `schtasks` escribe en stderr, y eso
     # con $ErrorActionPreference = 'Stop' abortaria el script justo antes de
@@ -129,7 +150,7 @@ if (Get-ScheduledTask -TaskName 'Juampi captura' -ErrorAction SilentlyContinue) 
     try { schtasks /Delete /TN 'Juampi captura' /F 2>$null | Out-Null } catch {}
     if (Get-ScheduledTask -TaskName 'Juampi captura' -ErrorAction SilentlyContinue) {
         Write-Host '  Juampi captura : NO se pudo retirar' -ForegroundColor Yellow
-        $pendiente = $true
+        $pendientes += 'Juampi captura'
     } else {
         Write-Host '  Juampi captura : retirada'
     }
@@ -137,9 +158,10 @@ if (Get-ScheduledTask -TaskName 'Juampi captura' -ErrorAction SilentlyContinue) 
     Write-Host '  Juampi captura : ya no existe'
 }
 
-if ($pendiente) {
+if ($pendientes) {
     Write-Host ''
-    Write-Host 'Vuelve a ejecutar este script COMO ADMINISTRADOR.' -ForegroundColor Yellow
+    Write-Host 'Vuelve a ejecutar este script COMO ADMINISTRADOR para:' -ForegroundColor Yellow
+    $pendientes | Sort-Object -Unique | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
     Write-Host 'Las tareas son propiedad del grupo Administradores y un usuario normal no puede borrarlas.' -ForegroundColor Yellow
 }
 
