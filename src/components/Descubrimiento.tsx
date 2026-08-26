@@ -9,6 +9,7 @@ import {
   type Sugerencia,
 } from "@/lib/descubrir-actions";
 import { createPlaylistFromTracks } from "@/lib/spotify-actions";
+import Miniatura from "@/components/stats/Miniatura";
 
 export default function Descubrimiento({ preset }: { preset?: string }) {
   const [sugerencias, setSugerencias] = useState<Sugerencia[] | null>(null);
@@ -140,6 +141,16 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
           {guardadas.length === 1 ? "canción" : "canciones"}.
         </p>
         {guardadas.length > 0 && (
+          <ul className="mb-8 flex flex-wrap gap-2">
+            {guardadas.slice(0, 12).map((g) => (
+              <li key={g.clave} title={`${g.titulo} — ${g.artista}`}>
+                <Miniatura nombre={g.titulo} url={g.caratula} lado={48} />
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {guardadas.length > 0 && (
           <button
             onClick={crearPlaylist}
             disabled={creando}
@@ -196,21 +207,39 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
         )}
       </div>
 
-      <article key={actual.clave} className="rise">
-        <p className="label-mono text-acid mb-4">
-          {actual.artistaConocido
-            ? "De un artista que ya escuchas"
-            : "Artista nuevo para ti"}
-          {" · "}
-          <span className="text-mute">
-            sale de {actual.semillas}{" "}
-            {actual.semillas === 1 ? "canción tuya" : "canciones tuyas"}
-          </span>
-        </p>
-        <h2 className="display-italic text-[clamp(2rem,6vw,4rem)] leading-[0.95] break-words mb-3">
-          {actual.titulo}
-        </h2>
-        <p className="font-serif text-xl text-cream-dim">{actual.artista}</p>
+      {/* La caratula manda: aqui estas juzgando musica que no conoces, y la
+          portada es la mitad de la decision. */}
+      <article key={actual.clave} className="rise flex items-end gap-7 flex-wrap">
+        <div className="relative">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -inset-8 rounded-full
+                       bg-acid/[0.07] blur-3xl"
+          />
+          <Miniatura
+            nombre={actual.titulo}
+            url={actual.caratula}
+            lado={200}
+            redondeo="rounded-3xl"
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="label-mono text-acid mb-4">
+            {actual.artistaConocido
+              ? "De un artista que ya escuchas"
+              : "Artista nuevo para ti"}
+            {" · "}
+            <span className="text-mute">
+              sale de {actual.semillas}{" "}
+              {actual.semillas === 1 ? "canción tuya" : "canciones tuyas"}
+            </span>
+          </p>
+          <h2 className="display-italic text-[clamp(1.8rem,5vw,3.4rem)] leading-[0.95] break-words mb-3">
+            {actual.titulo}
+          </h2>
+          <p className="font-serif text-xl text-cream-dim">{actual.artista}</p>
+        </div>
       </article>
 
       <div className="flex items-center gap-6 mt-14 flex-wrap">

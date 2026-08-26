@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { spotifyFetch } from "@/lib/spotify";
 
 async function probe(label: string, path: string) {
@@ -10,7 +12,18 @@ async function probe(label: string, path: string) {
   }
 }
 
+/**
+ * Sonda manual de la Web API.
+ *
+ * Era la unica pagina sin comprobacion de sesion. Hoy es inofensiva porque
+ * `spotifyFetch` lanza sin sesion y solo se veria una lista de errores, pero
+ * enseña que endpoints existen y con que ids, y en un servidor accesible desde
+ * fuera eso no tiene por que estar abierto.
+ */
 export default async function DebugPage() {
+  const session = await auth();
+  if (!session) redirect("/biblioteca");
+
   const results = await Promise.all([
     probe("Profile", "/me"),
     probe("My playlists (first page)", "/me/playlists?limit=5"),

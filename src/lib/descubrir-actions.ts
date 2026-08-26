@@ -3,14 +3,19 @@
 import { db } from "@/db";
 import { requireSession } from "./require-session";
 import { spotifyFetch } from "./spotify";
-import { artistKey } from "./stats/normalize";
+import { artistKey, trackKey } from "./stats/normalize";
+import {
+  guardarCaratula,
+  mejorCaratula,
+} from "./capture/rellenar-caratulas";
+import { getCaratulas } from "./stats/imagenes";
 import { parseRange } from "./stats/range";
 import { resolveTimeZone } from "./stats/local-time";
 import { descubrir } from "./descubrir/candidatos";
 import { resolverUris } from "./descubrir/resolver";
 import type { Candidato } from "./descubrir/mezcla";
 
-export type Sugerencia = Candidato & { uri: string };
+export type Sugerencia = Candidato & { uri: string; caratula?: string };
 
 export type Dispositivo = {
   id: string;
@@ -25,6 +30,7 @@ type BusquedaSpotify = {
       uri: string;
       name: string;
       artists: { name: string }[];
+      album?: { images?: { url: string; width?: number }[] };
     }[];
   };
 };
@@ -49,7 +55,22 @@ async function buscarEnSpotify(
 
   const esperado = artistKey(artista);
   for (const t of datos.tracks?.items ?? []) {
-    if (t.artists.some((a) => artistKey(a.name) === esperado)) return t.uri;
+    if (!t.artists.some((a) => artistKey(a.name) === esperado)) continue;
+
+    // La respuesta trae la caratula y se estaba tirando. Guardarla aqui evita
+    // una peticion mas por cancion, y ademas queda para la proxima: estas
+    // sugerencias son temas que aun no has escuchado, asi que no hay ninguna
+    // otra via por la que su caratula llegue a la cache.
+    const url = mejorCaratula({ uri: t.uri, album: t.album });
+    if (url) {
+      try {
+        await guardarCaratula(db, "cancion", trackKey(artista, titulo), url, Date.now());
+      } catch {
+        // Sin caratula la sugerencia sigue siendo util; no vale la pena
+        // tumbar la busqueda por no poder cachear una imagen.
+      }
+    }
+    return t.uri;
   }
   return null;
 }
@@ -80,10 +101,19 @@ export async function obtenerSugerencias(
     Date.now(),
   );
 
+  // Se leen despues de resolver: las que se acaban de buscar quedaron
+  // guardadas por el camino, y las que venian de la cache pueden tenerla de una
+  // tanda anterior.
+  const caratulas = await getCaratulas(
+    db,
+    "cancion",
+    candidatos.map((c) => c.clave),
+  );
+
   const sugerencias: Sugerencia[] = [];
   for (const c of candidatos) {
     const uri = uris.get(c.clave);
-    if (uri) sugerencias.push({ ...c, uri });
+    if (uri) sugerencias.push({ ...c, uri, caratula: caratulas[c.clave] });
   }
 
   return {
