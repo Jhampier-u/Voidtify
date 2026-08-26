@@ -1,6 +1,7 @@
 import "server-only";
 import { spotifyRequest } from "./spotify-core";
 import { getCredentials, updateAccessToken } from "./credentials";
+import { conTokenRenovable } from "./reintentar-401";
 
 /** Margen antes de la expiración para no usar un token a punto de caducar. */
 const MARGEN_MS = 60_000;
@@ -65,11 +66,22 @@ async function refrescar(refreshToken: string): Promise<string> {
   return datos.access_token;
 }
 
-async function accessToken(): Promise<string> {
+/**
+ * Token para la captura, del almacén o recién pedido.
+ *
+ * `forzar` salta el guardado aunque no haya caducado: es la salida para un 401,
+ * porque un token puede dejar de valer antes de su fecha.
+ */
+async function accessToken(forzar = false): Promise<string> {
   const cred = await getCredentials();
   if (!cred) throw new SinCredencialesError();
 
-  if (cred.accessToken && cred.expiresAt && Date.now() < cred.expiresAt - MARGEN_MS) {
+  if (
+    !forzar &&
+    cred.accessToken &&
+    cred.expiresAt &&
+    Date.now() < cred.expiresAt - MARGEN_MS
+  ) {
     return cred.accessToken;
   }
 
@@ -86,5 +98,7 @@ export async function spotifyFetchHeadless<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  return spotifyRequest<T>(await accessToken(), path, init);
+  return conTokenRenovable(accessToken, (token) =>
+    spotifyRequest<T>(token, path, init),
+  );
 }
