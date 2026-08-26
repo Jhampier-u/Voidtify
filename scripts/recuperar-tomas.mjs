@@ -11,6 +11,11 @@
  *
  *   node scripts/recuperar-tomas.mjs             ensaya y cuenta
  *   node scripts/recuperar-tomas.mjs --aplicar   escribe
+ *
+ * YA APLICADO el 26 de agosto de 2026: 54 tomas recuperadas. El archivo de
+ * origen se borro despues, asi que hoy esto falla al abrirlo. Se conserva
+ * porque documenta de donde salieron esas tomas y como se comprobaron, y
+ * porque sirve para el mismo caso con otro `ORIGEN`.
  */
 import Database from "better-sqlite3";
 import path from "node:path";
