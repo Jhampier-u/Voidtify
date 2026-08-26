@@ -27,9 +27,6 @@ export const POR_CAPTURA = 15;
 
 export const MAX_EDAD_MS = 60 * 86_400_000;
 
-/** Ventana que define «lo que estás escuchando ahora». */
-const RECIENTE_DIAS = 90;
-
 const ANCHO_DESEADO = 300;
 
 /** La url más cercana al ancho deseado, o null si no hay imágenes. */
@@ -50,8 +47,16 @@ export function mejorCaratula(p: PistaSpotify): string | null {
  * La carátula de un álbum se saca de cualquiera de sus pistas, así que los dos
  * tipos se resuelven por el mismo camino y con una sola consulta a Spotify.
  *
- * Prioriza lo que suena estos días, igual que las fotos de artista: ordenar por
- * el histórico llena la caché con cosas que no están en pantalla.
+ * Prioriza lo **más recientemente escuchado**, no lo más escuchado.
+ *
+ * Las fotos de artista van por número de reproducciones porque alimentan un
+ * ranking. Las carátulas alimentan además el historial, que es una lista
+ * cronológica de reproducciones concretas: ahí lo que se ve es lo último que
+ * sonó, repetido o no. Con el orden por recuento, cuatro capturas dejaron 11 de
+ * 97 canciones visibles con carátula, porque casi ninguna se repite.
+ *
+ * Los tops no salen perdiendo: lo más escuchado de un periodo reciente también
+ * se ha escuchado hace poco, así que entra igualmente por delante.
  */
 export function getPendientes(
   db: Db,
@@ -61,10 +66,6 @@ export function getPendientes(
   maxEdadMs: number = MAX_EDAD_MS,
 ): Pendiente[] {
   const corte = ahoraMs - maxEdadMs;
-  const desde = new Date(ahoraMs - RECIENTE_DIAS * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
-
   const columna = tipo === "cancion" ? streams.trackKey : streams.albumKey;
 
   // MAX(track_uri) elige una cualquiera de las pistas del grupo, que es todo lo
@@ -81,9 +82,7 @@ export function getPendientes(
       AND ${streams.trackUri} IS NOT NULL
       AND (${caratula.clave} IS NULL OR ${caratula.fetchedAt} < ${corte})
     GROUP BY ${columna}
-    ORDER BY
-      SUM(CASE WHEN ${streams.localDate} >= ${desde} THEN 1 ELSE 0 END) DESC,
-      COUNT(*) DESC
+    ORDER BY MAX(${streams.ts}) DESC
     LIMIT ${limite}
   `);
 }

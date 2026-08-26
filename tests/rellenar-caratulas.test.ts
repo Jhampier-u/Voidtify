@@ -98,17 +98,18 @@ describe("getPendientes", () => {
     expect(getPendientes(db, "cancion", 10, AHORA)).toEqual([]);
   });
 
-  it("antepone lo que suena ahora", () => {
-    const hoy = new Date(AHORA).toISOString().slice(0, 10);
-    const viejo = new Date(AHORA - 400 * DIA).toISOString().slice(0, 10);
+  // El historial es una lista cronologica: lo que se ve es lo ultimo que sono,
+  // repetido o no. Con el orden por recuento, una cancion oida una sola vez
+  // ayer quedaba detras de miles con mas escuchas y nunca llegaba su turno.
+  it("antepone lo ultimo escuchado, aunque solo sonara una vez", () => {
     seedStreams(sqlite, [
-      ...Array.from({ length: 10 }, () =>
-        stream({ trackName: "Antigua", localDate: viejo }),
+      ...Array.from({ length: 20 }, (_, i) =>
+        stream({ trackName: "Muy escuchada", ts: AHORA - 100 * DIA + i }),
       ),
-      stream({ trackName: "Actual", localDate: hoy }),
+      stream({ trackName: "De ayer", ts: AHORA - DIA }),
     ]);
     expect(getPendientes(db, "cancion", 10, AHORA)[0].clave).toBe(
-      trackKey("Slowdive", "Actual"),
+      trackKey("Slowdive", "De ayer"),
     );
   });
 });

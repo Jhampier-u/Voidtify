@@ -7,6 +7,9 @@ import { enRango, type Db } from "./shared";
 export type HistoryRow = {
   id: number;
   ts: number;
+  /** Claves normalizadas, para la carátula y para enlazar a la ficha. */
+  trackKey: string;
+  artistKey: string;
   trackName: string;
   artistName: string;
   albumName: string | null;
@@ -63,6 +66,8 @@ export async function getHistory(
     SELECT
       ${streams.id}          AS id,
       ${streams.ts}          AS ts,
+      ${streams.trackKey}    AS trackKey,
+      ${streams.artistKey}   AS artistKey,
       ${streams.trackName}   AS trackName,
       ${streams.artistName}  AS artistName,
       ${streams.albumName}   AS albumName,
@@ -77,4 +82,37 @@ export async function getHistory(
   `);
 
   return { rows, total };
+}
+
+export type TotalDia = { plays: number; ms: number };
+
+/**
+ * Totales de unos días concretos, para las cabeceras del historial.
+ *
+ * Se piden solo los días que se van a pintar y no el rango entero: una página
+ * muestra cien filas, que rara vez pasan de tres o cuatro días.
+ *
+ * Y son los totales del día completo, no de las filas de esta página. Un día
+ * puede quedar partido entre dos páginas, y contar solo lo visible daría una
+ * cifra que cambia al pasar de página sin que cambien los datos.
+ */
+export async function getTotalesDeDias(
+  db: Db,
+  fechas: string[],
+): Promise<Record<string, TotalDia>> {
+  if (fechas.length === 0) return {};
+
+  const filas = db.all<{ date: string; plays: number; ms: number }>(sql`
+    SELECT
+      ${streams.localDate}     AS date,
+      COUNT(*)                 AS plays,
+      SUM(${streams.msPlayed}) AS ms
+    FROM ${streams}
+    WHERE ${streams.localDate} IN ${fechas}
+    GROUP BY ${streams.localDate}
+  `);
+
+  const salida: Record<string, TotalDia> = {};
+  for (const f of filas) salida[f.date] = { plays: f.plays, ms: f.ms };
+  return salida;
 }

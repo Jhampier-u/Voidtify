@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { duracion } from "@/lib/formato";
+import { duracion, duracionCorta, fechaLarga } from "@/lib/formato";
 
 const MIN = 60_000;
 
@@ -52,5 +52,55 @@ describe("duracion", () => {
       expect(duracion(89_000)).toBe("1 min");
       expect(duracion(29_000)).toBe("0 min");
     });
+  });
+});
+
+describe("fechaLarga", () => {
+  it("nombra el día de la semana y el mes", () => {
+    expect(fechaLarga("2026-08-25")).toBe("martes, 25 de agosto de 2026");
+  });
+
+  // Construir la fecha desde YYYY-MM-DD y formatearla con la zona del proceso
+  // desplaza la medianoche al día anterior en Ecuador, y cada cabecera del
+  // historial mostraría la víspera.
+  it("no se desplaza por la zona horaria", () => {
+    expect(fechaLarga("2026-01-01")).toBe("jueves, 1 de enero de 2026");
+    expect(fechaLarga("2026-12-31")).toBe("jueves, 31 de diciembre de 2026");
+  });
+
+  it("acierta el día de la semana en un bisiesto", () => {
+    expect(fechaLarga("2028-02-29")).toBe("martes, 29 de febrero de 2028");
+  });
+
+  // En una lista de días seguidos, repetir el año en cada cabecera es ruido.
+  it("calla el año cuando es el actual", () => {
+    expect(fechaLarga("2026-08-25", 2026)).toBe("martes, 25 de agosto");
+    expect(fechaLarga("2019-08-25", 2026)).toBe("domingo, 25 de agosto de 2019");
+  });
+});
+
+describe("duracionCorta", () => {
+  it("da minutos y segundos", () => {
+    expect(duracionCorta(204_000)).toBe("3:24");
+  });
+
+  it("rellena los segundos a dos cifras", () => {
+    expect(duracionCorta(65_000)).toBe("1:05");
+  });
+
+  // Es la razon de que exista: `duracion` redondearia esto a «1 min» y se
+  // perderia lo unico que distingue una cancion escuchada de una saltada.
+  it("conserva los saltos cortos", () => {
+    expect(duracionCorta(9_000)).toBe("0:09");
+    expect(duracionCorta(45_000)).toBe("0:45");
+  });
+
+  it("aguanta el cero y los negativos", () => {
+    expect(duracionCorta(0)).toBe("0:00");
+    expect(duracionCorta(-500)).toBe("0:00");
+  });
+
+  it("pasa de la hora sin romperse", () => {
+    expect(duracionCorta(3_930_000)).toBe("65:30");
   });
 });

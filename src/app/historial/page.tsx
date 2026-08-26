@@ -5,7 +5,10 @@ import { db } from "@/db";
 import { getMe } from "@/lib/spotify";
 import { parseRange } from "@/lib/stats/range";
 import { resolveTimeZone } from "@/lib/stats/local-time";
-import { getHistory } from "@/lib/stats/history";
+import { getHistory, getTotalesDeDias } from "@/lib/stats/history";
+import { getCaratulas } from "@/lib/stats/imagenes";
+import { duracion, duracionCorta, fechaLarga } from "@/lib/formato";
+import Miniatura from "@/components/stats/Miniatura";
 import TopBar from "@/components/TopBar";
 import RangePicker from "@/components/stats/RangePicker";
 
@@ -84,6 +87,13 @@ export default async function Historial({
     nuevoDia: i === 0 || r.localDate !== rows[i - 1].localDate,
   }));
 
+  // Solo los días y las carátulas de lo que se pinta en esta página.
+  const [caratulas, totalesDia] = await Promise.all([
+    getCaratulas(db, "cancion", [...new Set(rows.map((r) => r.trackKey))]),
+    getTotalesDeDias(db, [...new Set(rows.map((r) => r.localDate))]),
+  ]);
+  const anioActual = new Date(ahoraMs()).getFullYear();
+
   return (
     <main className="min-h-screen flex flex-col">
       <TopBar me={me} active="historial" />
@@ -128,28 +138,62 @@ export default async function Historial({
         <section className="px-8 py-8">
           <ol>
             {conDia.map(({ fila: r, nuevoDia }) => {
+              const total = totalesDia[r.localDate];
               return (
                 <li key={r.id}>
                   {nuevoDia && (
-                    <p className="label-mono text-acid pt-6 pb-2">
-                      {r.localDate}
-                    </p>
+                    <div className="flex items-baseline justify-between gap-4 pt-8 pb-3">
+                      <p className="font-serif text-lg text-cream">
+                        {fechaLarga(r.localDate, anioActual)}
+                      </p>
+                      {total && (
+                        // Del día entero, no de las filas de esta página: un
+                        // día puede quedar partido y la cifra cambiaría al
+                        // pasar de página sin cambiar los datos.
+                        <p className="dato-mono text-mute shrink-0">
+                          {total.plays.toLocaleString("es")} ·{" "}
+                          {duracion(total.ms)}
+                        </p>
+                      )}
+                    </div>
                   )}
-                  <div className="flex items-baseline gap-4 py-1.5 hairline-b">
-                    <span className="label-mono text-mute num-tabular w-12 shrink-0">
+                  <Link
+                    href={`/escucha/cancion/${encodeURIComponent(r.trackKey)}`}
+                    className="group flex items-center gap-3 rounded-xl px-2 py-1.5
+                               transition-[transform,background-color] duration-200
+                               ease-out hover:translate-x-1 hover:bg-ink-2/50"
+                  >
+                    <span className="dato-mono text-mute w-11 shrink-0">
                       {hora(r.ts)}
                     </span>
-                    <span className="flex-1 min-w-0 truncate">
-                      {r.trackName}
-                      <span className="text-mute"> · {r.artistName}</span>
+
+                    <Miniatura
+                      nombre={r.trackName}
+                      url={caratulas[r.trackKey]}
+                      lado={34}
+                    />
+
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate transition-colors duration-200 group-hover:text-acid">
+                        {r.trackName}
+                      </span>
+                      <span className="block truncate font-mono text-[11px] text-mute">
+                        {r.artistName}
+                      </span>
                     </span>
-                    <span className="dato-mono text-mute num-tabular shrink-0">
-                      {Math.round(r.msPlayed / 1000)}s
+
+                    <span className="dato-mono text-mute shrink-0">
+                      {duracionCorta(r.msPlayed)}
                     </span>
                     {r.source === "live" && (
-                      <span className="label-mono text-mute shrink-0">live</span>
+                      <span
+                        className="label-mono text-mute shrink-0"
+                        title="Capturada en vivo, no importada del volcado"
+                      >
+                        live
+                      </span>
                     )}
-                  </div>
+                  </Link>
                 </li>
               );
             })}
