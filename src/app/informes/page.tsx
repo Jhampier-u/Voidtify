@@ -230,7 +230,7 @@ export default async function Informes({
           {tiles.map((t, i) => (
             <div
               key={t.label}
-              className="bg-ink px-5 py-6 fade-in"
+              className="bg-ink px-5 py-6 rise"
               style={{ animationDelay: `${i * 60}ms` }}
             >
               <dt className="label-mono text-mute mb-3">{t.label}</dt>

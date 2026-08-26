@@ -73,7 +73,7 @@ export default function GenrePanel({
           {generos.map((g, i) => (
             <li
               key={g.name}
-              className="flex items-center gap-3 fade-in"
+              className="flex items-center gap-3 rise"
               style={{ animationDelay: `${i * 40}ms` }}
             >
               <span className="w-40 shrink-0 truncate">{g.name}</span>

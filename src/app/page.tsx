@@ -101,7 +101,7 @@ export default async function Portada({
       {/* ---------------- Cifra protagonista ---------------- */}
       <section className="px-8 pt-16 pb-12 hairline-b">
         <div className="grid grid-cols-12 gap-6 items-end">
-          <div className="col-span-12 lg:col-span-7 fade-in">
+          <div className="col-span-12 lg:col-span-7 rise">
             <p className="label-mono text-acid mb-6">{range.label}</p>
             <p
               className="display num-tabular text-[clamp(4rem,15vw,12rem)] text-acid leading-[0.82]"
@@ -118,7 +118,7 @@ export default async function Portada({
           </div>
 
           <div
-            className="col-span-12 lg:col-span-5 flex justify-center lg:justify-end fade-in"
+            className="col-span-12 lg:col-span-5 flex justify-center lg:justify-end rise"
             style={{ animationDelay: "120ms" }}
           >
             <HourClock buckets={horas} />
@@ -168,7 +168,7 @@ export default async function Portada({
       ) : (
         <>
           {/* ---------------- Evolución ---------------- */}
-          <section className="px-8 py-12 hairline-b fade-in">
+          <section className="px-8 py-12 hairline-b rise">
             <MonthlyChart buckets={meses} />
           </section>
 
@@ -203,7 +203,7 @@ export default async function Portada({
           </section>
 
           {/* ---------------- Calendario ---------------- */}
-          <section className="px-8 py-12 hairline-b fade-in">
+          <section className="px-8 py-12 hairline-b rise">
             <CalendarHeatmap buckets={dias} />
           </section>
 
@@ -215,7 +215,7 @@ export default async function Portada({
           </section>
 
           {/* ---------------- Géneros ---------------- */}
-          <section className="px-8 py-12 hairline-b fade-in">
+          <section className="px-8 py-12 hairline-b rise">
             <GenrePanel
               generos={generos.generos}
               conGeneros={generos.conGeneros}
@@ -226,14 +226,14 @@ export default async function Portada({
           </section>
 
           {/* ---------------- Compartir y exportar ---------------- */}
-          <section className="px-8 py-12 hairline-b fade-in flex flex-col gap-12">
+          <section className="px-8 py-12 hairline-b rise flex flex-col gap-12">
             <ShareCards range={range} />
             <PlaylistFromTops rangeParams={params} etiqueta={range.label} />
           </section>
 
           {/* ---------------- Abandono ---------------- */}
           {skips.conDatos > 0 && (
-            <section className="px-8 py-12 hairline-b fade-in">
+            <section className="px-8 py-12 hairline-b rise">
               <SkipPanel stats={skips} artistas={masSaltados} />
             </section>
           )}

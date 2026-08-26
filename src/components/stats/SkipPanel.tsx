@@ -65,7 +65,7 @@ export default function SkipPanel({
             {artistas.map((a, i) => (
               <li
                 key={a.key}
-                className="relative flex items-baseline justify-between gap-4 px-2 py-2 hairline-b overflow-hidden fade-in"
+                className="relative flex items-baseline justify-between gap-4 px-2 py-2 hairline-b overflow-hidden rise"
                 style={{ animationDelay: `${i * 40}ms` }}
               >
                 <span

@@ -29,7 +29,7 @@ export default function WeekdayBars({ buckets }: { buckets: Bucket[] }) {
         {buckets.map((b, i) => (
           <li
             key={b.weekday}
-            className="flex items-center gap-3 fade-in"
+            className="flex items-center gap-3 rise"
             style={{ animationDelay: `${i * 40}ms` }}
           >
             <span className="label-mono text-mute w-8 shrink-0">

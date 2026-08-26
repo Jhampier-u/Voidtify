@@ -88,7 +88,7 @@ export default async function FichaAlbum({
           {ficha.tracks.map((t, i) => (
             <li
               key={t.key}
-              className="relative flex items-baseline justify-between gap-4 px-2 py-2.5 hairline-b overflow-hidden fade-in"
+              className="relative flex items-baseline justify-between gap-4 px-2 py-2.5 hairline-b overflow-hidden rise"
               style={{ animationDelay: `${i * 30}ms` }}
             >
               <span

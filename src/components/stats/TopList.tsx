@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { duracion } from "@/lib/formato";
 
 type Entrada = {
   key: string;
@@ -44,7 +45,7 @@ export default function TopList({
           {entradas.map((e, i) => (
             <li
               key={e.key}
-              className="relative flex items-baseline justify-between gap-4 px-2 py-2.5 hairline-b overflow-hidden fade-in"
+              className="relative flex items-baseline justify-between gap-4 px-2 py-2.5 hairline-b overflow-hidden rise"
               style={{ animationDelay: `${i * 40}ms` }}
             >
               <span
@@ -78,10 +79,13 @@ export default function TopList({
                 </span>
               </span>
 
-              <span className="relative label-mono text-mute num-tabular whitespace-nowrap">
+              {/* `normal-case` a propósito: `label-mono` pone todo en
+                  mayúsculas y convertía la «m» de minutos en «M», que junto a
+                  52 reproducciones se lee como millones. */}
+              <span className="relative label-mono normal-case text-mute num-tabular whitespace-nowrap">
                 {e.plays.toLocaleString("es")}
                 <span className="text-rule"> / </span>
-                {Math.round(e.ms / 60000).toLocaleString("es")}m
+                {duracion(e.ms)}
               </span>
             </li>
           ))}

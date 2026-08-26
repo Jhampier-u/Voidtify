@@ -143,7 +143,7 @@ export default async function Historial({
                       {r.trackName}
                       <span className="text-mute"> · {r.artistName}</span>
                     </span>
-                    <span className="label-mono text-mute num-tabular shrink-0">
+                    <span className="label-mono normal-case text-mute num-tabular shrink-0">
                       {Math.round(r.msPlayed / 1000)}s
                     </span>
                     {r.source === "live" && (

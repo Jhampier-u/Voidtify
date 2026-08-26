@@ -196,7 +196,7 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
         )}
       </div>
 
-      <article key={actual.clave} className="fade-in">
+      <article key={actual.clave} className="rise">
         <p className="label-mono text-acid mb-4">
           {actual.artistaConocido
             ? "De un artista que ya escuchas"

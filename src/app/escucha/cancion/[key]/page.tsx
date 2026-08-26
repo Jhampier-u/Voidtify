@@ -80,7 +80,7 @@ export default async function FichaCancion({
         ]}
       />
 
-      <section className="px-8 py-12 fade-in">
+      <section className="px-8 py-12 rise">
         <MonthlyChart
           buckets={ficha.porMes.map((m) => ({ ...m, ms: 0 }))}
         />

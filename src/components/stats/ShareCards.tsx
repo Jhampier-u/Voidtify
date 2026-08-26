@@ -37,7 +37,7 @@ export default function ShareCards({ range }: { range: StatsRange }) {
             <a
               href={`/api/card/${t.tipo}?${qs}`}
               download={`voidtify-${t.tipo}.png`}
-              className="flex flex-col gap-2 px-5 py-6 hover:bg-ink-2 transition-colors fade-in"
+              className="flex flex-col gap-2 px-5 py-6 hover:bg-ink-2 transition-colors rise"
               style={{ animationDelay: `${i * 60}ms` }}
             >
               <span className="label-mono text-acid">{t.label} ↓</span>
