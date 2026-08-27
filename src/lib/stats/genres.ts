@@ -286,3 +286,15 @@ export async function guardarGeneros(
     .values(valores)
     .onConflictDoUpdate({ target: artistGenres.artistKey, set: valores });
 }
+
+/**
+ * Las etiquetas cacheadas de todos los artistas, por clave.
+ *
+ * Sin filtrar por rango: son poco más de tres mil filas y traerlas enteras sale
+ * más barato que atar mil claves en un `IN`, que obliga a SQLite a una búsqueda
+ * por índice por cada una.
+ */
+export async function getGenerosPorClave(db: Db): Promise<Map<string, string[]>> {
+  const filas = await db.select().from(artistGenres);
+  return new Map(filas.map((f) => [f.artistKey, parseGeneros(f.genres)]));
+}

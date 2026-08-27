@@ -10,7 +10,13 @@ import { getTopArtists, getTopTracks, getTopAlbums } from "@/lib/stats/tops";
 import { getByHour, getByWeekday, getByMonth, getByDate } from "@/lib/stats/time";
 import { getStreaks } from "@/lib/stats/streaks";
 import { getSkipStats, getMostSkippedArtists } from "@/lib/stats/skips";
-import { getGenreBreakdown } from "@/lib/stats/genres";
+import { getGenreBreakdown, getGenerosPorClave } from "@/lib/stats/genres";
+import MezclaEnElTiempo from "@/components/stats/MezclaEnElTiempo";
+import {
+  construirMezcla,
+  getMezclaPorMes,
+  MINIMO_MESES,
+} from "@/lib/stats/genero-tiempo";
 import TopBar from "@/components/TopBar";
 import RangePicker from "@/components/stats/RangePicker";
 import StatTiles from "@/components/stats/StatTiles";
@@ -147,6 +153,19 @@ export default async function Portada({
     : {};
 
   const anioActual = Number(hoy.slice(0, 4));
+
+  // La mezcla solo se pide si hay meses suficientes: con cuatro semanas son dos
+  // puntos, y dos puntos unidos dibujan una transicion que nunca ocurrio. La
+  // consulta cuesta unos doscientos milisegundos, asi que tampoco se lanza
+  // para tirarla despues.
+  const mezcla =
+    meses.length >= MINIMO_MESES && generos.generos.length >= 2
+      ? construirMezcla(
+          await getMezclaPorMes(db, range),
+          await getGenerosPorClave(db),
+          generos.generos.slice(0, 8).map((g) => g.name),
+        )
+      : null;
 
   const minutos = Math.round(totals.msTotal / 60000);
   const vacio = totals.reproducciones === 0;
@@ -354,6 +373,20 @@ export default async function Portada({
 
           {/* ---------------- Géneros ---------------- */}
           <section className="px-8 py-12 hairline-b rise">
+            {mezcla && (
+              <div className="mb-12">
+                <p className="label-mono text-mute mb-1">
+                  Cómo ha cambiado tu mezcla
+                </p>
+                <p className="font-serif italic text-cream-dim mb-6 max-w-2xl">
+                  Cada mes suma cien: esto es de qué estaba hecho lo que
+                  escuchabas entonces, no cuánto. Un corte hasta abajo es un mes
+                  sin música.
+                </p>
+                <MezclaEnElTiempo mezcla={mezcla} />
+              </div>
+            )}
+
             <GenrePanel
               generos={generos.generos}
               epocas={generos.epocas}
