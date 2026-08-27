@@ -6,6 +6,7 @@ import { getMe } from "@/lib/spotify";
 import { parseRange, rangoAnterior } from "@/lib/stats/range";
 import { resolveTimeZone, localParts } from "@/lib/stats/local-time";
 import { getTotals } from "@/lib/stats/totals";
+import { variacion } from "@/lib/stats/variacion";
 import { getTopArtists, getTopTracks, getTopAlbums } from "@/lib/stats/tops";
 import { getByHour, getByWeekday, getByMonth, getByDate } from "@/lib/stats/time";
 import { getStreaks } from "@/lib/stats/streaks";
@@ -176,6 +177,10 @@ export default async function Portada({
   // para que un genero que cae del puesto veinte al treinta ensene una caida y
   // no un «salio de la lista», que diria bastante menos.
   const anterior = rangoAnterior(range);
+
+  // Los mismos totales del periodo anterior, para decir si este ha sido grande
+  // o pequeno. En «Historico» no hay nada antes y las cifras van sin comparar.
+  const totalesAntes = anterior ? await getTotals(db, anterior) : null;
   // Se compara por clave y no por ortografia: son dos rangos distintos y cada
   // uno podria haber elegido una variante, con lo que el mismo genero pareceria
   // nuevo en uno y desaparecido en el otro.
@@ -322,13 +327,24 @@ export default async function Portada({
             {
               label: "Reproducciones",
               valor: totals.reproducciones.toLocaleString("es"),
+              variacion: variacion(
+                totals.reproducciones,
+                totalesAntes?.reproducciones ?? null,
+              ),
             },
             {
               label: "Artistas",
               valor: totals.artistas.toLocaleString("es"),
               nota: `${totals.canciones.toLocaleString("es")} canciones`,
+              variacion: variacion(
+                totals.artistas,
+                totalesAntes?.artistas ?? null,
+              ),
             },
             {
+              // La racha no se compara: no es una cifra del periodo sino de
+              // hoy, y ponerle un «frente al mes pasado» seria comparar dos
+              // cosas distintas.
               label: "Racha actual",
               valor: `${rachas.actual}`,
               nota: `máxima ${rachas.maxima} días`,
@@ -341,6 +357,7 @@ export default async function Portada({
                 totals.msTotal > 86_400_000
                   ? `${(totals.msTotal / 86_400_000).toFixed(1)} días seguidos`
                   : undefined,
+              variacion: variacion(totals.msTotal, totalesAntes?.msTotal ?? null),
             },
           ]}
         />
