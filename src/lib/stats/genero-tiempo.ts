@@ -4,7 +4,10 @@ import { contadas, enRango, type Db } from "./shared";
 import type { StatsRange } from "./range";
 import { porEje } from "./etiquetas";
 
-export type FilaMes = { mes: string; key: string; plays: number };
+export type Granularidad = "mes" | "semana";
+
+/** `periodo` es `YYYY-MM` por meses y el lunes en `YYYY-MM-DD` por semanas. */
+export type FilaMes = { periodo: string; key: string; plays: number };
 
 /**
  * Reproducciones por mes y artista.
@@ -20,18 +23,41 @@ export async function getMezclaPorMes(
 ): Promise<FilaMes[]> {
   return db.all<FilaMes>(sql`
     SELECT
-      substr(${streams.localDate}, 1, 7) AS mes,
+      substr(${streams.localDate}, 1, 7) AS periodo,
       ${streams.artistKey}               AS key,
       COUNT(*)                           AS plays
     FROM ${streams}
     WHERE ${enRango(range)} AND ${contadas()}
-    GROUP BY mes, key
+    GROUP BY periodo, key
+  `);
+}
+
+/**
+ * Lo mismo por semanas, para los rangos que no llegan a cuatro meses.
+ *
+ * `date(d, '-6 days', 'weekday 1')` da el lunes de la semana de `d`:
+ * `weekday 1` avanza al siguiente lunes y se queda si ya lo es, así que
+ * retroceder seis días primero deja el lunes de la propia semana tanto si `d`
+ * es lunes como si es domingo.
+ */
+export async function getMezclaPorSemana(
+  db: Db,
+  range: StatsRange,
+): Promise<FilaMes[]> {
+  return db.all<FilaMes>(sql`
+    SELECT
+      date(${streams.localDate}, '-6 days', 'weekday 1') AS periodo,
+      ${streams.artistKey}                               AS key,
+      COUNT(*)                                           AS plays
+    FROM ${streams}
+    WHERE ${enRango(range)} AND ${contadas()}
+    GROUP BY periodo, key
   `);
 }
 
 export type PuntoMezcla = {
-  /** `YYYY-MM`. */
-  mes: string;
+  /** `YYYY-MM` por meses, el lunes en `YYYY-MM-DD` por semanas. */
+  periodo: string;
   /** Reproducciones atribuidas ese mes, para saber si el punto tiene peso. */
   total: number;
   /**
@@ -46,28 +72,40 @@ export type PuntoMezcla = {
 
 export type Mezcla = {
   generos: string[];
+  granularidad: Granularidad;
   puntos: PuntoMezcla[];
 };
 
-/** Meses distintos a partir de los cuales la mezcla dice algo. */
-export const MINIMO_MESES = 4;
+/**
+ * Periodos distintos a partir de los cuales la mezcla dice algo.
+ *
+ * Con menos, la superficie degenera: dos puntos unidos dibujan una transición
+ * suave que nadie vivió.
+ */
+export const MINIMO_PERIODOS = 4;
 
 const MESES_ES = [
   "ene", "feb", "mar", "abr", "may", "jun",
   "jul", "ago", "sep", "oct", "nov", "dic",
 ];
 
-/** `2026-08` a «ago 26». */
-export function etiquetaMes(mes: string): string {
-  const [a, m] = mes.split("-").map(Number);
-  return `${MESES_ES[m - 1]} ${String(a).slice(2)}`;
+/** `2026-08` a «ago 26»; `2026-08-24` a «24 ago». */
+export function etiquetaPeriodo(periodo: string, granularidad: Granularidad): string {
+  const [a, m, d] = periodo.split("-").map(Number);
+  return granularidad === "mes"
+    ? `${MESES_ES[m - 1]} ${String(a).slice(2)}`
+    : `${d} ${MESES_ES[m - 1]}`;
 }
 
-function siguienteMes(mes: string): string {
-  const [a, m] = mes.split("-").map(Number);
-  return m === 12
-    ? `${a + 1}-01`
-    : `${a}-${String(m + 1).padStart(2, "0")}`;
+function siguiente(periodo: string, granularidad: Granularidad): string {
+  if (granularidad === "semana") {
+    const [a, m, d] = periodo.split("-").map(Number);
+    const v = new Date(Date.UTC(a, m - 1, d) + 7 * 86_400_000);
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${v.getUTCFullYear()}-${p(v.getUTCMonth() + 1)}-${p(v.getUTCDate())}`;
+  }
+  const [a, m] = periodo.split("-").map(Number);
+  return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, "0")}`;
 }
 
 /**
@@ -87,25 +125,26 @@ export function construirMezcla(
   generosPorClave: Map<string, string[]>,
   /** Los géneros que se dibujan, en orden. */
   generos: string[],
+  granularidad: Granularidad = "mes",
   /** Cuántas etiquetas de género se le atribuyen a cada artista. */
   porArtista = 3,
 ): Mezcla {
   if (filas.length === 0 || generos.length === 0) {
-    return { generos, puntos: [] };
+    return { generos, granularidad, puntos: [] };
   }
 
   const indice = new Map(generos.map((g, i) => [g, i]));
 
-  // mes -> [plays por género dibujado, plays de todo lo demás]
+  // periodo -> [plays por género dibujado, plays de todo lo demás]
   const acumulado = new Map<string, { partes: number[]; otros: number }>();
 
   for (const f of filas) {
     const tags = generosPorClave.get(f.key);
-    const acc = acumulado.get(f.mes) ?? {
+    const acc = acumulado.get(f.periodo) ?? {
       partes: Array<number>(generos.length).fill(0),
       otros: 0,
     };
-    acumulado.set(f.mes, acc);
+    acumulado.set(f.periodo, acc);
 
     // Un artista sin etiquetas no desaparece del gráfico: entra en «otros».
     // Sacarlo haría que los meses peor cubiertos por la caché pareciesen más
@@ -128,16 +167,16 @@ export function construirMezcla(
   const ordenados = [...acumulado.keys()].sort();
   const puntos: PuntoMezcla[] = [];
 
-  // Se recorre mes a mes desde el primero hasta el último, rellenando los que
-  // no aparecen en los datos: son meses de silencio y tienen que verse.
-  let mes = ordenados[0];
+  // Se recorre periodo a periodo desde el primero hasta el último, rellenando
+  // los que no aparecen en los datos: son silencio y tienen que verse.
+  let periodo = ordenados[0];
   const ultimo = ordenados[ordenados.length - 1];
   for (;;) {
-    const acc = acumulado.get(mes);
+    const acc = acumulado.get(periodo);
     const total = acc ? acc.partes.reduce((a, b) => a + b, 0) + acc.otros : 0;
 
     puntos.push({
-      mes,
+      periodo,
       total,
       partes:
         acc && total > 0
@@ -146,9 +185,9 @@ export function construirMezcla(
       otros: acc && total > 0 ? acc.otros / total : 0,
     });
 
-    if (mes === ultimo) break;
-    mes = siguienteMes(mes);
+    if (periodo === ultimo) break;
+    periodo = siguiente(periodo, granularidad);
   }
 
-  return { generos, puntos };
+  return { generos, granularidad, puntos };
 }

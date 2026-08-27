@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { getMe } from "@/lib/spotify";
-import { parseRange } from "@/lib/stats/range";
+import { parseRange, rangoAnterior } from "@/lib/stats/range";
 import { resolveTimeZone, localParts } from "@/lib/stats/local-time";
 import { getTotals } from "@/lib/stats/totals";
 import { getTopArtists, getTopTracks, getTopAlbums } from "@/lib/stats/tops";
@@ -11,11 +11,20 @@ import { getByHour, getByWeekday, getByMonth, getByDate } from "@/lib/stats/time
 import { getStreaks } from "@/lib/stats/streaks";
 import { getSkipStats, getMostSkippedArtists } from "@/lib/stats/skips";
 import { getGenreBreakdown, getGenerosPorClave } from "@/lib/stats/genres";
+import { compararGeneros, salieron } from "@/lib/stats/comparar-generos";
+import {
+  construirVidaDeGeneros,
+  dormidos,
+  getVidaDeArtistas,
+  inicioDeVentana,
+  DIAS_DORMIDO,
+} from "@/lib/stats/vida-generos";
 import MezclaEnElTiempo from "@/components/stats/MezclaEnElTiempo";
 import {
   construirMezcla,
   getMezclaPorMes,
-  MINIMO_MESES,
+  getMezclaPorSemana,
+  MINIMO_PERIODOS,
 } from "@/lib/stats/genero-tiempo";
 import TopBar from "@/components/TopBar";
 import RangePicker from "@/components/stats/RangePicker";
@@ -154,18 +163,49 @@ export default async function Portada({
 
   const anioActual = Number(hoy.slice(0, 4));
 
-  // La mezcla solo se pide si hay meses suficientes: con cuatro semanas son dos
-  // puntos, y dos puntos unidos dibujan una transicion que nunca ocurrio. La
-  // consulta cuesta unos doscientos milisegundos, asi que tampoco se lanza
-  // para tirarla despues.
-  const mezcla =
-    meses.length >= MINIMO_MESES && generos.generos.length >= 2
-      ? construirMezcla(
-          await getMezclaPorMes(db, range),
-          await getGenerosPorClave(db),
-          generos.generos.slice(0, 8).map((g) => g.name),
-        )
-      : null;
+  // Se carga una sola vez: lo usan la mezcla en el tiempo y la vida de cada
+  // genero, y son tres mil filas.
+  const generosPorClave = await getGenerosPorClave(db);
+
+  // Que sube y que baja. Se piden sesenta del periodo anterior y no veinticuatro
+  // para que un genero que cae del puesto veinte al treinta ensene una caida y
+  // no un «salio de la lista», que diria bastante menos.
+  const anterior = rangoAnterior(range);
+  const generosAntes = anterior
+    ? (await getGenreBreakdown(db, anterior, 60)).generos.map((g) => g.name)
+    : [];
+  const movimiento = compararGeneros(
+    generos.generos.map((g) => g.name),
+    generosAntes,
+  );
+  const salen = anterior ? salieron(generos.generos.map((g) => g.name), generosAntes) : [];
+
+  // Cuando entro cada genero en tu vida y cual lleva tiempo sin sonar. Va
+  // contra todo el historial y no contra el rango: la pregunta es esa.
+  const vidaGeneros = construirVidaDeGeneros(
+    await getVidaDeArtistas(db, inicioDeVentana(hoy, DIAS_DORMIDO)),
+    generosPorClave,
+  );
+
+  // Por meses cuando hay meses suficientes y por semanas cuando no. Antes se
+  // exigian cuatro meses y punto, asi que en el preset por defecto —cuatro
+  // semanas, que abarcan dos meses— el grafico no se dibujaba nunca: la
+  // funcion mas grande de la seccion era invisible justo donde mas se mira.
+  const granularidad = meses.length >= MINIMO_PERIODOS ? "mes" : "semana";
+  const bandas = generos.generos.slice(0, 8).map((g) => g.name);
+
+  let mezcla = null;
+  if (bandas.length >= 2) {
+    const filas =
+      granularidad === "mes"
+        ? await getMezclaPorMes(db, range)
+        : await getMezclaPorSemana(db, range);
+
+    const candidata = construirMezcla(filas, generosPorClave, bandas, granularidad);
+    // Con menos de cuatro puntos la superficie degenera: dos puntos unidos
+    // dibujan una transicion suave que nadie vivio.
+    if (candidata.puntos.length >= MINIMO_PERIODOS) mezcla = candidata;
+  }
 
   const minutos = Math.round(totals.msTotal / 60000);
   const vacio = totals.reproducciones === 0;
@@ -356,7 +396,7 @@ export default async function Portada({
               {/* El calendario y el reparto semanal cuentan lo mismo a dos
                   escalas, y estaban en secciones distintas ocupando cada una
                   media pagina. Juntos llenan el ancho y se leen a la vez. */}
-              <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
                 <CalendarioEscuchas
                   calendario={calendario}
                   destacados={destacadosPorFecha}
@@ -397,6 +437,11 @@ export default async function Portada({
               sinEtiquetas={generos.sinEtiquetas}
               pendientes={generos.pendientes}
               imagenes={imagenesArtistas}
+              movimiento={movimiento}
+              salen={salen}
+              vida={Object.fromEntries(vidaGeneros)}
+              dormidos={dormidos(vidaGeneros)}
+              diasDormido={DIAS_DORMIDO}
               rangeParams={params}
             />
           </section>

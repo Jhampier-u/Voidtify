@@ -9,6 +9,8 @@ import {
 } from "@/lib/genre-fill-actions";
 import { getRitmoDeGenero, type RitmoDeGenero } from "@/lib/genero-actions";
 import type { EntradaEtiqueta } from "@/lib/stats/genres";
+import type { Comparado } from "@/lib/stats/comparar-generos";
+import type { VidaGenero } from "@/lib/stats/vida-generos";
 
 /** `84 K`, `1,2 M`. Los oyentes de Last.fm llegan a las decenas de millones. */
 function compacta(n: number): string {
@@ -38,6 +40,11 @@ export default function GenrePanel({
   sinEtiquetas,
   pendientes,
   imagenes,
+  movimiento,
+  salen,
+  vida,
+  dormidos,
+  diasDormido,
   rangeParams,
 }: {
   generos: EntradaEtiqueta[];
@@ -50,6 +57,15 @@ export default function GenrePanel({
   pendientes: number;
   /** Fotos por clave de artista, para la lista que se despliega. */
   imagenes: Record<string, string>;
+  /** Puestos ganados o perdidos frente al periodo anterior. */
+  movimiento: Comparado[];
+  /** Los que estaban en el periodo anterior y ya no aparecen. */
+  salen: string[];
+  /** Cuándo entró cada género en tu vida, por nombre. */
+  vida: Record<string, VidaGenero>;
+  /** Los que llevas tiempo sin escuchar. */
+  dormidos: VidaGenero[];
+  diasDormido: number;
   rangeParams: { preset?: string; desde?: string; hasta?: string };
 }) {
   const [pendiente, startTransition] = useTransition();
@@ -92,6 +108,7 @@ export default function GenrePanel({
 
   const restantes = ultimo?.restantes ?? pendientes;
   const max = Math.max(1, ...generos.map((g) => g.plays));
+  const deltaDe = new Map(movimiento.map((m) => [m.name, m.delta]));
 
   if (generos.length === 0) {
     return (
@@ -117,7 +134,10 @@ export default function GenrePanel({
         </p>
       </div>
 
-      <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_320px]">
+      {/* `lg` y no `xl`: con un panel de 320 px, exigir 1.280 px de
+          ventana dejaba la columna derecha vacia en cualquier portatil y
+          los tres ejes se apilaban debajo de la lista. */}
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div>
           <ul className="flex flex-col gap-1">
             {generos.map((g, i) => (
@@ -138,6 +158,8 @@ export default function GenrePanel({
                   >
                     {g.name}
                   </span>
+
+                  <Delta valor={deltaDe.get(g.name)} />
 
                   <span className="h-3 flex-1 overflow-hidden rounded-full bg-ink-2">
                     <span
@@ -174,6 +196,15 @@ export default function GenrePanel({
                       {g.artistas.toLocaleString("es")}{" "}
                       {g.artistas === 1 ? "artista tuyo" : "artistas tuyos"} ·{" "}
                       {g.plays.toLocaleString("es")} reproducciones
+                      {vida[g.name] && (
+                        <>
+                          <span className="text-rule"> · </span>
+                          en tu vida desde{" "}
+                          <span className="text-cream-dim">
+                            {mesLargo(vida[g.name].primera)}
+                          </span>
+                        </>
+                      )}
                     </p>
 
                     <Ritmo ritmo={ritmos[g.name]} />
@@ -210,6 +241,13 @@ export default function GenrePanel({
               </li>
             ))}
           </ul>
+
+          {salen.length > 0 && (
+            <p className="dato-mono text-mute mt-5 leading-relaxed">
+              salieron desde el periodo anterior:{" "}
+              <span className="text-cream-dim">{salen.join(" · ")}</span>
+            </p>
+          )}
 
           <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3">
             {/* El botón solo aparece si hay algo que adelantar. Antes salía
@@ -264,6 +302,31 @@ export default function GenrePanel({
           <Eje titulo="Procedencia" entradas={procedencias} />
           <Eje titulo="Voz" entradas={voces} />
 
+          {dormidos.length > 0 && (
+            <div>
+              <p className="label-mono text-mute mb-1">Dormidos</p>
+              <p className="dato-mono text-mute/70 mb-3">
+                sin sonar en {diasDormido} días
+              </p>
+              <ul className="flex flex-col gap-2">
+                {dormidos.map((d) => (
+                  <li
+                    key={d.name}
+                    className="flex items-baseline justify-between gap-3"
+                    title={`${d.total.toLocaleString("es")} reproducciones de por vida`}
+                  >
+                    <span className="min-w-0 truncate font-serif text-cream-dim">
+                      {d.name}
+                    </span>
+                    <span className="dato-mono num-tabular shrink-0 text-mute">
+                      {mesLargo(d.ultima)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <p className="font-serif italic text-mute leading-relaxed">
             Cuántos de tus artistas llevan cada etiqueta. Estas tres no son
             géneros: son décadas, países y tipo de voz, y antes ensuciaban la
@@ -273,6 +336,46 @@ export default function GenrePanel({
         </aside>
       </div>
     </section>
+  );
+}
+
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+/** `2021-03-14` a «marzo de 2021». */
+function mesLargo(fecha: string): string {
+  const [a, m] = fecha.split("-").map(Number);
+  return `${MESES[m - 1]} de ${a}`;
+}
+
+/**
+ * Puestos ganados o perdidos frente al periodo anterior.
+ *
+ * Se compara la posición y no el porcentaje: el porcentaje de un género depende
+ * de todos los demás, así que basta con que aparezca un artista nuevo muy
+ * escuchado para que todo lo demás baje unas décimas sin haber cambiado nada.
+ */
+function Delta({ valor }: { valor: number | null | undefined }) {
+  if (valor === undefined) return null;
+  if (valor === null) {
+    return <span className="label-mono shrink-0 text-acid">nuevo</span>;
+  }
+  if (valor === 0) return <span className="w-10 shrink-0" aria-hidden />;
+
+  const sube = valor > 0;
+  return (
+    <span
+      className={`label-mono num-tabular w-10 shrink-0 ${
+        sube ? "text-acid" : "text-blood"
+      }`}
+      title={`${sube ? "sube" : "baja"} ${Math.abs(valor)} ${
+        Math.abs(valor) === 1 ? "puesto" : "puestos"
+      } frente al periodo anterior`}
+    >
+      {sube ? "↑" : "↓"} {Math.abs(valor)}
+    </span>
   );
 }
 

@@ -149,7 +149,16 @@ function componer(
 export async function getGenreBreakdown(
   db: Db,
   range: StatsRange,
-  limite = 12,
+  /**
+   * Cuántos géneros se enseñan.
+   *
+   * Eran doce y se quedaban cortos: con mil artistas analizados hay 238 géneros
+   * distintos en cuatro semanas y más de cuatrocientos en el historial, y doce
+   * cubren solo entre el 55 y el 65 % de lo atribuido. Lo que se quedaba fuera
+   * era además lo más característico —coldwave, 8-bit, space rock, noise pop—
+   * mientras dentro sobrevivían «pop» y «rock». Veinticuatro llegan al 80 %.
+   */
+  limite = 24,
 ): Promise<GenreBreakdown> {
   const top = db.all<{ key: string; name: string; plays: number }>(sql`
     SELECT

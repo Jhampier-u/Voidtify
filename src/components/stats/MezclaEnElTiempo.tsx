@@ -1,4 +1,4 @@
-import { etiquetaMes, type Mezcla } from "@/lib/stats/genero-tiempo";
+import { etiquetaPeriodo, type Mezcla } from "@/lib/stats/genero-tiempo";
 
 /**
  * Ocho bandas distinguibles sobre fondo casi negro.
@@ -35,7 +35,7 @@ const ALTO = 100;
  * suave donde hubo tres meses de silencio.
  */
 export default function MezclaEnElTiempo({ mezcla }: { mezcla: Mezcla }) {
-  const { generos, puntos } = mezcla;
+  const { generos, granularidad, puntos } = mezcla;
   if (puntos.length < 2) return null;
 
   const ancho = puntos.length - 1;
@@ -61,8 +61,8 @@ export default function MezclaEnElTiempo({ mezcla }: { mezcla: Mezcla }) {
     return `M${ida} L${vuelta} Z`;
   };
 
-  // Cuántas etiquetas de mes caben sin pisarse. Con noventa y seis meses no
-  // caben todas ni escribiéndolas de canto.
+  // Cuántas etiquetas caben sin pisarse. Con noventa y seis meses no caben
+  // todas ni escribiéndolas de canto.
   const paso = Math.max(1, Math.ceil(puntos.length / 12));
   const marcas = puntos
     .map((p, i) => ({ p, i }))
@@ -117,11 +117,11 @@ export default function MezclaEnElTiempo({ mezcla }: { mezcla: Mezcla }) {
       <div className="relative mt-2 h-4">
         {marcas.map(({ p, i }) => (
           <span
-            key={p.mes}
+            key={p.periodo}
             className="dato-mono absolute -translate-x-1/2 whitespace-nowrap text-mute"
             style={{ left: `${(i / ancho) * 100}%` }}
           >
-            {etiquetaMes(p.mes)}
+            {etiquetaPeriodo(p.periodo, granularidad)}
           </span>
         ))}
       </div>

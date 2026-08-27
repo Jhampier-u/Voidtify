@@ -144,3 +144,36 @@ export function parseRange(
 
   return desdePreset(PRESET_POR_DEFECTO, ahora, timeZone);
 }
+
+/**
+ * El periodo de igual duración justo antes del rango.
+ *
+ * Sirve para decir qué sube y qué baja. Devuelve null en «Histórico»: su inicio
+ * es un centinela de 1970 y no hay nada anterior con lo que comparar; inventar
+ * un periodo previo daría deltas contra el vacío que se leerían como
+ * crecimientos espectaculares.
+ */
+export function rangoAnterior(range: StatsRange): StatsRange | null {
+  if (range.preset === "all") return null;
+
+  const dias = diasEntre(range.fromDate, range.toDate);
+  if (dias <= 0) return null;
+
+  return {
+    fromDate: restarDias(range.fromDate, dias),
+    // Un día antes del inicio del actual: si no, los dos periodos comparten el
+    // primer día y el mismo dato contaría en los dos lados de la comparación.
+    toDate: restarDias(range.fromDate, 1),
+    label: "periodo anterior",
+    preset: range.preset,
+  };
+}
+
+/** Días de calendario entre dos fechas, ambas incluidas. */
+function diasEntre(desde: string, hasta: string): number {
+  const a = desde.split("-").map(Number);
+  const b = hasta.split("-").map(Number);
+  const ms =
+    Date.UTC(b[0], b[1] - 1, b[2]) - Date.UTC(a[0], a[1] - 1, a[2]);
+  return Math.round(ms / DIA_MS) + 1;
+}

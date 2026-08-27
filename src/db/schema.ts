@@ -77,6 +77,12 @@ export const streams = sqliteTable(
   (t) => ({
     byTs: index("streams_ts_idx").on(t.ts),
     byArtist: index("streams_artist_idx").on(t.artistKey, t.ts),
+    /** Cubre las preguntas de «vida»: primera vez, ultima vez y cuantas van. */
+    byArtistDate: index("streams_artist_date_idx").on(
+      t.artistKey,
+      t.localDate,
+      t.msPlayed,
+    ),
     byTrack: index("streams_track_idx").on(t.trackKey, t.ts),
     byAlbum: index("streams_album_idx").on(t.albumKey, t.ts),
     byLocalDate: index("streams_local_date_idx").on(t.localDate),

@@ -1,22 +1,28 @@
 import { describe, it, expect } from "vitest";
 import {
   construirMezcla,
-  etiquetaMes,
+  etiquetaPeriodo,
   type FilaMes,
 } from "@/lib/stats/genero-tiempo";
 
-const fila = (mes: string, key: string, plays: number): FilaMes => ({
-  mes,
+const fila = (periodo: string, key: string, plays: number): FilaMes => ({
+  periodo,
   key,
   plays,
 });
 
 const mapa = (o: Record<string, string[]>) => new Map(Object.entries(o));
 
-describe("etiquetaMes", () => {
+describe("etiquetaPeriodo", () => {
   it("abrevia el mes y recorta el año", () => {
-    expect(etiquetaMes("2026-08")).toBe("ago 26");
-    expect(etiquetaMes("2019-01")).toBe("ene 19");
+    expect(etiquetaPeriodo("2026-08", "mes")).toBe("ago 26");
+    expect(etiquetaPeriodo("2019-01", "mes")).toBe("ene 19");
+  });
+
+  // En semanas el año sobra —no caben cincuenta y dos etiquetas de todas
+  // formas— y el dia es lo que situa.
+  it("da el día y el mes en semanas", () => {
+    expect(etiquetaPeriodo("2026-08-24", "semana")).toBe("24 ago");
   });
 });
 
@@ -24,6 +30,7 @@ describe("construirMezcla", () => {
   it("no devuelve puntos sin datos", () => {
     expect(construirMezcla([], mapa({}), ["indie"])).toEqual({
       generos: ["indie"],
+      granularidad: "mes",
       puntos: [],
     });
   });
@@ -60,6 +67,7 @@ describe("construirMezcla", () => {
       [fila("2026-01", "a", 10)],
       mapa({ a: ["indie", "punk", "jazz", "folk"] }),
       ["indie", "folk"],
+      "mes",
       3,
     );
     // «folk» es la cuarta y no entra, asi que todo su peso va a indie.
@@ -110,7 +118,7 @@ describe("construirMezcla", () => {
         mapa({ a: ["indie"] }),
         ["indie"],
       );
-      expect(m.puntos.map((p) => p.mes)).toEqual([
+      expect(m.puntos.map((p) => p.periodo)).toEqual([
         "2026-01", "2026-02", "2026-03", "2026-04",
       ]);
       expect(m.puntos[1]).toMatchObject({ total: 0, otros: 0, partes: [0] });
@@ -122,7 +130,7 @@ describe("construirMezcla", () => {
         mapa({ a: ["indie"] }),
         ["indie"],
       );
-      expect(m.puntos.map((p) => p.mes)).toEqual([
+      expect(m.puntos.map((p) => p.periodo)).toEqual([
         "2025-11", "2025-12", "2026-01", "2026-02",
       ]);
     });
@@ -134,6 +142,42 @@ describe("construirMezcla", () => {
       mapa({ a: ["indie"] }),
       ["indie"],
     );
-    expect(m.puntos.map((p) => p.mes)).toEqual(["2026-01", "2026-02", "2026-03"]);
+    expect(m.puntos.map((p) => p.periodo)).toEqual(["2026-01", "2026-02", "2026-03"]);
+  });
+
+  describe("por semanas", () => {
+    it("avanza de lunes en lunes", () => {
+      const m = construirMezcla(
+        [fila("2026-08-03", "a", 1), fila("2026-08-24", "a", 1)],
+        mapa({ a: ["indie"] }),
+        ["indie"],
+        "semana",
+      );
+      expect(m.puntos.map((p) => p.periodo)).toEqual([
+        "2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24",
+      ]);
+    });
+
+    it("cruza el cambio de mes y de año", () => {
+      const m = construirMezcla(
+        [fila("2025-12-29", "a", 1), fila("2026-01-12", "a", 1)],
+        mapa({ a: ["indie"] }),
+        ["indie"],
+        "semana",
+      );
+      expect(m.puntos.map((p) => p.periodo)).toEqual([
+        "2025-12-29", "2026-01-05", "2026-01-12",
+      ]);
+    });
+
+    it("deja la granularidad en el resultado", () => {
+      const m = construirMezcla(
+        [fila("2026-08-03", "a", 1)],
+        mapa({ a: ["indie"] }),
+        ["indie"],
+        "semana",
+      );
+      expect(m.granularidad).toBe("semana");
+    });
   });
 });
