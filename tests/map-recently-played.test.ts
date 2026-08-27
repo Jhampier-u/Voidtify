@@ -112,4 +112,112 @@ describe("mapRecentlyPlayed", () => {
     const sinArtistas = item({ track: { ...item().track!, artists: [] } });
     expect(mapRecentlyPlayed([sinArtistas], "UTC")).toHaveLength(0);
   });
+
+  describe("cuánto sonó cada una", () => {
+    // `played_at` es el FINAL de la reproduccion. Se comprobo contra el
+    // volcado, donde ms_played si es real: el hueco entre dos marcas coincide
+    // con lo que sono la SEGUNDA en el 85 % de los casos y con lo que sono la
+    // primera solo en el 13 %.
+    const en = (iso: string, dur: number, nombre: string): RecentlyPlayedItem =>
+      item({
+        played_at: iso,
+        track: {
+          uri: `spotify:track:${nombre}`,
+          name: nombre,
+          duration_ms: dur,
+          artists: [{ id: "a1", name: "Slowdive" }],
+          album: { id: "al1", name: "Souvlaki" },
+        },
+      });
+
+    it("acota el tiempo con el hueco desde la anterior", () => {
+      const filas = mapRecentlyPlayed(
+        [
+          en("2026-07-15T18:00:00.000Z", 200_000, "primera"),
+          // Termina 90 s despues: eso es lo que sono, aunque dure 240.
+          en("2026-07-15T18:01:30.000Z", 240_000, "segunda"),
+        ],
+        "UTC",
+      );
+      expect(filas.find((f) => f.trackName === "segunda")!.msPlayed).toBe(90_000);
+    });
+
+    it("no pasa de la duración aunque el hueco sea mayor", () => {
+      const filas = mapRecentlyPlayed(
+        [
+          en("2026-07-15T18:00:00.000Z", 200_000, "primera"),
+          en("2026-07-15T18:10:00.000Z", 180_000, "segunda"),
+        ],
+        "UTC",
+      );
+      expect(filas.find((f) => f.trackName === "segunda")!.msPlayed).toBe(180_000);
+    });
+
+    // Por encima de media hora el hueco no mide una reproduccion sino una
+    // pausa: darla por sonada entera seria inventarse el tiempo.
+    it("vuelve a la duración tras una pausa larga", () => {
+      const filas = mapRecentlyPlayed(
+        [
+          en("2026-07-15T18:00:00.000Z", 200_000, "primera"),
+          en("2026-07-15T19:30:00.000Z", 240_000, "segunda"),
+        ],
+        "UTC",
+      );
+      expect(filas.find((f) => f.trackName === "segunda")!.msPlayed).toBe(240_000);
+    });
+
+    it("la primera del lote se acota con la última ya guardada", () => {
+      const anterior = Date.UTC(2026, 6, 15, 18, 0, 0);
+      const [fila] = mapRecentlyPlayed(
+        [en("2026-07-15T18:01:00.000Z", 240_000, "unica")],
+        "UTC",
+        anterior,
+      );
+      expect(fila.msPlayed).toBe(60_000);
+    });
+
+    it("sin nada guardado antes, la primera conserva su duración", () => {
+      const [fila] = mapRecentlyPlayed(
+        [en("2026-07-15T18:01:00.000Z", 240_000, "unica")],
+        "UTC",
+        null,
+      );
+      expect(fila.msPlayed).toBe(240_000);
+    });
+
+    // La API los devuelve del mas reciente al mas antiguo: sin ordenar, los
+    // huecos saldrian negativos y no se usaria ninguno.
+    it("mide bien aunque lleguen del más reciente al más antiguo", () => {
+      const filas = mapRecentlyPlayed(
+        [
+          en("2026-07-15T18:01:30.000Z", 240_000, "segunda"),
+          en("2026-07-15T18:00:00.000Z", 200_000, "primera"),
+        ],
+        "UTC",
+      );
+      expect(filas.find((f) => f.trackName === "segunda")!.msPlayed).toBe(90_000);
+    });
+
+    it("devuelve las filas en el orden en que sonaron", () => {
+      const filas = mapRecentlyPlayed(
+        [
+          en("2026-07-15T18:01:30.000Z", 240_000, "segunda"),
+          en("2026-07-15T18:00:00.000Z", 200_000, "primera"),
+        ],
+        "UTC",
+      );
+      expect(filas.map((f) => f.trackName)).toEqual(["primera", "segunda"]);
+    });
+
+    it("un hueco de cero no se usa", () => {
+      const filas = mapRecentlyPlayed(
+        [
+          en("2026-07-15T18:00:00.000Z", 200_000, "primera"),
+          en("2026-07-15T18:00:00.000Z", 240_000, "segunda"),
+        ],
+        "UTC",
+      );
+      expect(filas.find((f) => f.trackName === "segunda")!.msPlayed).toBe(240_000);
+    });
+  });
 });

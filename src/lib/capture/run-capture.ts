@@ -133,7 +133,9 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
     );
 
     const items = respuesta.items ?? [];
-    const filas = mapRecentlyPlayed(items, timeZone);
+    // El ts de la ultima guardada acota cuanto sono la primera del lote: sin
+    // el, la primera de cada captura se guardaria con su duracion entera.
+    const filas = mapRecentlyPlayed(items, timeZone, estado?.lastPlayedAt);
     const inserted = await insertStreams(db, filas);
 
     // Un fallo aquí no debe tumbar la captura de escuchas, que es lo urgente.
