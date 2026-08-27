@@ -1,37 +1,89 @@
 import { inArray, sql } from "drizzle-orm";
-import { artistGenres, streams } from "@/db/schema";
+import { artistGenres, artistStats, streams } from "@/db/schema";
 import type { StatsRange } from "./range";
 import { contadas, enRango, type Db } from "./shared";
+import { porEje, type Eje } from "./etiquetas";
 
-export type GenreEntry = {
+export type ArtistaDeEtiqueta = {
+  key: string;
   name: string;
-  /** Reproducciones atribuidas a este género. */
   plays: number;
-  /** Proporción sobre el total atribuido, entre 0 y 1. */
+};
+
+export type EntradaEtiqueta = {
+  name: string;
+  /** Reproducciones atribuidas a esta etiqueta. */
+  plays: number;
+  /**
+   * Proporción de escucha sobre el total atribuido en su eje, entre 0 y 1.
+   *
+   * Es la cifra buena para los géneros, que es donde la pregunta es «cuánto de
+   * lo que suena es esto». En los ejes pequeños miente: la mayoría de artistas
+   * no lleva ninguna etiqueta de época, así que «80s 77 %» no dice que tres de
+   * cada cuatro canciones sean de los ochenta, sino que tres de cada cuatro
+   * *etiquetas de época* lo son. Para esos va `shareArtistas`.
+   */
   share: number;
-  /** Cuántos de tus artistas lo llevan. */
+  /** Cuántos de tus artistas la llevan. */
   artistas: number;
+  /**
+   * Qué parte de tus artistas etiquetados la lleva, entre 0 y 1.
+   *
+   * El denominador son todos los artistas con etiquetas, no los que tienen una
+   * de este eje. Así «el 12 % de tus artistas está marcado como 80s» es cierto
+   * tal cual está escrito.
+   */
+  shareArtistas: number;
+  /** Los que más aportan, para poder abrir la etiqueta. */
+  top: ArtistaDeEtiqueta[];
+  /**
+   * Mediana de oyentes en Last.fm de sus artistas, o null si no se sabe.
+   *
+   * Mediana y no media: un solo artista enorme dentro de un género de nicho
+   * arrastraría la media hasta hacerla mentir.
+   */
+  oyentes: number | null;
 };
 
 export type GenreBreakdown = {
-  generos: GenreEntry[];
-  /** Artistas del rango que tienen géneros cacheados. */
-  conGeneros: number;
-  /** Artistas del rango sin géneros todavía. */
-  sinGeneros: number;
+  generos: EntradaEtiqueta[];
+  epocas: EntradaEtiqueta[];
+  procedencias: EntradaEtiqueta[];
+  voces: EntradaEtiqueta[];
+  /** Artistas del rango que se han mirado. */
+  analizados: number;
+  /** De ellos, cuántos tienen al menos una etiqueta. */
+  conEtiquetas: number;
+  /**
+   * Consultados a Last.fm y sin ninguna etiqueta suya.
+   *
+   * Están terminados: volver a preguntar daría lo mismo. Contarlos como
+   * pendientes era lo que hacía que la pantalla dijera «quedan 6 por resolver»
+   * mientras el botón no encontraba ni un candidato.
+   */
+  sinEtiquetas: number;
+  /** Sin consultar todavía. Estos sí los puede adelantar el botón. */
+  pendientes: number;
 };
 
 /**
- * Cuántos artistas se miran para componer el reparto de géneros.
+ * Cuántos artistas se miran para componer el reparto.
  *
- * Consultar Last.fm por los diez mil artistas del historial no es viable, y
- * tampoco haría falta: los trescientos más escuchados cubren la inmensa
- * mayoría del tiempo. Es una aproximación, y la interfaz lo dice.
+ * Eran trescientos, y el número se puso cuando había cuarenta artistas
+ * resueltos de diez mil seiscientos: pedir más habría sido pedir huecos. Hoy
+ * hay más de tres mil en caché, y en un rango de cuatro semanas los artistas
+ * escuchados están cubiertos al cien por cien. Subirlo no cuesta ni una
+ * petición y deja de ser una aproximación sobre una minoría.
  */
-export const PROFUNDIDAD = 300;
+export const PROFUNDIDAD = 1000;
 
-/** Cuántos géneros se le atribuyen a cada artista. */
-const GENEROS_POR_ARTISTA = 3;
+/**
+ * Cuántas etiquetas de cada eje se le atribuyen a un artista.
+ *
+ * Las de Last.fm llegan de más a menos usada, y la cola es ruido: el cuarto o
+ * quinto género de un artista suele ser una etiqueta que puso una persona.
+ */
+const POR_ARTISTA = 3;
 
 function parseGeneros(json: string): string[] {
   try {
@@ -42,24 +94,68 @@ function parseGeneros(json: string): string[] {
   }
 }
 
+function mediana(valores: number[]): number | null {
+  if (valores.length === 0) return null;
+  const o = [...valores].sort((a, b) => a - b);
+  const m = Math.floor(o.length / 2);
+  return o.length % 2 === 0 ? Math.round((o[m - 1] + o[m]) / 2) : o[m];
+}
+
+type Acumulado = {
+  plays: number;
+  artistas: ArtistaDeEtiqueta[];
+  oyentes: number[];
+};
+
+/** Cuántos artistas se guardan por etiqueta para poder abrirla. */
+const TOP_POR_ETIQUETA = 12;
+
+function componer(
+  acumulado: Map<string, Acumulado>,
+  limite: number,
+  conEtiquetas: number,
+): EntradaEtiqueta[] {
+  const total = [...acumulado.values()].reduce((n, v) => n + v.plays, 0);
+
+  return [...acumulado.entries()]
+    .map(([name, v]) => ({
+      name,
+      plays: v.plays,
+      artistas: v.artistas.length,
+      share: total === 0 ? 0 : v.plays / total,
+      shareArtistas: conEtiquetas === 0 ? 0 : v.artistas.length / conEtiquetas,
+      top: [...v.artistas]
+        .sort((a, b) => b.plays - a.plays)
+        .slice(0, TOP_POR_ETIQUETA),
+      oyentes: mediana(v.oyentes),
+    }))
+    .sort((a, b) => b.plays - a.plays)
+    .slice(0, limite);
+}
+
 /**
- * Reparto de géneros del rango, ponderado por reproducciones.
+ * Reparto de etiquetas del rango, ponderado por reproducciones y por eje.
  *
- * Cada artista aporta sus reproducciones a sus primeros géneros. No se divide
- * entre ellos: alguien que escucha shoegaze escucha las tres etiquetas del
- * artista a la vez, y repartir la cifra haría que los totales no sumaran nada
- * interpretable. Por eso se expone `share` sobre el total atribuido y no sobre
- * las reproducciones del rango.
+ * Cada artista aporta sus reproducciones a sus primeras etiquetas de cada eje.
+ * No se divide entre ellas: alguien que escucha shoegaze escucha las tres
+ * etiquetas del artista a la vez, y repartir la cifra haría que los totales no
+ * sumaran nada interpretable. Por eso `share` va sobre el total atribuido
+ * dentro de su eje y no sobre las reproducciones del rango.
+ *
+ * Los ejes van separados porque las etiquetas de Last.fm no son un vocabulario
+ * de géneros: una de cada ocho es una década, un país o un tipo de voz. Juntas,
+ * «female vocalists» le quitaba el puesto ocho a un género de verdad.
  */
 export async function getGenreBreakdown(
   db: Db,
   range: StatsRange,
   limite = 12,
 ): Promise<GenreBreakdown> {
-  const top = db.all<{ key: string; plays: number }>(sql`
+  const top = db.all<{ key: string; name: string; plays: number }>(sql`
     SELECT
-      ${streams.artistKey} AS key,
-      COUNT(*)             AS plays
+      ${streams.artistKey}       AS key,
+      MAX(${streams.artistName}) AS name,
+      COUNT(*)                   AS plays
     FROM ${streams}
     WHERE ${enRango(range)} AND ${contadas()}
     GROUP BY ${streams.artistKey}
@@ -67,60 +163,91 @@ export async function getGenreBreakdown(
     LIMIT ${PROFUNDIDAD}
   `);
 
-  if (top.length === 0) {
-    return { generos: [], conGeneros: 0, sinGeneros: 0 };
-  }
+  const vacio: GenreBreakdown = {
+    generos: [], epocas: [], procedencias: [], voces: [],
+    analizados: 0, conEtiquetas: 0, sinEtiquetas: 0, pendientes: 0,
+  };
+  if (top.length === 0) return vacio;
 
-  const cacheados = await db
-    .select()
-    .from(artistGenres)
-    .where(
-      inArray(
-        artistGenres.artistKey,
-        top.map((a) => a.key),
-      ),
-    );
+  const claves = top.map((a) => a.key);
+
+  const [cacheados, popularidad] = await Promise.all([
+    db.select().from(artistGenres).where(inArray(artistGenres.artistKey, claves)),
+    db.select().from(artistStats).where(inArray(artistStats.artistKey, claves)),
+  ]);
 
   const porClave = new Map(
     cacheados.map((c) => [c.artistKey, parseGeneros(c.genres)]),
   );
+  const oyentesDe = new Map(
+    popularidad
+      .filter((p) => p.listeners !== null)
+      .map((p) => [p.artistKey, p.listeners as number]),
+  );
 
-  const acumulado = new Map<string, { plays: number; artistas: number }>();
-  let conGeneros = 0;
+  const ejes: Record<Eje, Map<string, Acumulado>> = {
+    genero: new Map(), epoca: new Map(), procedencia: new Map(),
+    voz: new Map(), otros: new Map(),
+  };
+
+  let conEtiquetas = 0;
+  let sinEtiquetas = 0;
+  let pendientes = 0;
 
   for (const a of top) {
-    const generos = porClave.get(a.key);
-    if (!generos || generos.length === 0) continue;
-    conGeneros += 1;
+    const tags = porClave.get(a.key);
 
-    for (const g of generos.slice(0, GENEROS_POR_ARTISTA)) {
-      const acc = acumulado.get(g) ?? { plays: 0, artistas: 0 };
-      acc.plays += a.plays;
-      acc.artistas += 1;
-      acumulado.set(g, acc);
+    // Sin fila es «aún no preguntado»; con fila vacía es «preguntado y Last.fm
+    // no tiene nada». Confundirlos era el origen del botón que no hacía nada.
+    if (tags === undefined) {
+      pendientes += 1;
+      continue;
+    }
+    if (tags.length === 0) {
+      sinEtiquetas += 1;
+      continue;
+    }
+    conEtiquetas += 1;
+
+    const oyentes = oyentesDe.get(a.key);
+    const repartidas = porEje(tags);
+
+    for (const eje of ["genero", "epoca", "procedencia", "voz"] as Eje[]) {
+      for (const etiqueta of repartidas[eje].slice(0, POR_ARTISTA)) {
+        const acc = ejes[eje].get(etiqueta) ?? {
+          plays: 0, artistas: [], oyentes: [],
+        };
+        acc.plays += a.plays;
+        acc.artistas.push({ key: a.key, name: a.name, plays: a.plays });
+        if (oyentes !== undefined) acc.oyentes.push(oyentes);
+        ejes[eje].set(etiqueta, acc);
+      }
     }
   }
 
-  const total = [...acumulado.values()].reduce((n, v) => n + v.plays, 0);
-
-  const generos = [...acumulado.entries()]
-    .map(([name, v]) => ({
-      name,
-      plays: v.plays,
-      artistas: v.artistas,
-      share: total === 0 ? 0 : v.plays / total,
-    }))
-    .sort((a, b) => b.plays - a.plays)
-    .slice(0, limite);
-
-  return { generos, conGeneros, sinGeneros: top.length - conGeneros };
+  return {
+    generos: componer(ejes.genero, limite, conEtiquetas),
+    // Los otros tres ejes tienen un vocabulario mucho más corto y no compiten
+    // por el sitio: con seis se ve el reparto entero sin ocupar media pantalla.
+    epocas: componer(ejes.epoca, 6, conEtiquetas),
+    procedencias: componer(ejes.procedencia, 6, conEtiquetas),
+    voces: componer(ejes.voz, 2, conEtiquetas),
+    analizados: top.length,
+    conEtiquetas,
+    sinEtiquetas,
+    pendientes,
+  };
 }
 
 /**
- * Artistas del rango que aún no tienen géneros en caché.
+ * Artistas del rango que aún no se han consultado a Last.fm.
  *
  * Devuelve la clave y el nombre tal como se escribió, porque Last.fm se
  * consulta por nombre legible, no por la clave normalizada.
+ *
+ * Deja fuera a los que ya tienen fila, aunque esté vacía: esos están
+ * terminados. La pantalla los cuenta aparte para no prometer un trabajo que
+ * este listado no va a devolver nunca.
  */
 export async function getArtistasSinGeneros(
   db: Db,

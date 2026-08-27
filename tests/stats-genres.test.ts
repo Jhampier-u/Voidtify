@@ -118,29 +118,45 @@ describe("getGenreBreakdown", () => {
     const { db } = createTestDb();
     expect(await getGenreBreakdown(db, HISTORICO)).toEqual({
       generos: [],
-      conGeneros: 0,
-      sinGeneros: 0,
+      epocas: [],
+      procedencias: [],
+      voces: [],
+      analizados: 0,
+      conEtiquetas: 0,
+      sinEtiquetas: 0,
+      pendientes: 0,
     });
   });
 
-  it("cuenta cuántos artistas tienen géneros y cuántos no", async () => {
+  it("cuenta cuántos artistas tienen etiquetas y cuántos faltan", async () => {
     const { db, sqlite } = createTestDb();
     seedStreams(sqlite, [...escuchas("Con", 2), ...escuchas("Sin", 1)]);
     await guardarGeneros(db, "con", ["shoegaze"]);
 
     const r = await getGenreBreakdown(db, HISTORICO);
-    expect(r.conGeneros).toBe(1);
-    expect(r.sinGeneros).toBe(1);
+    expect(r).toMatchObject({ analizados: 2, conEtiquetas: 1, pendientes: 1 });
   });
 
-  it("un artista sin etiquetas no cuenta como resuelto", async () => {
+  // Un artista consultado del que Last.fm no sabe nada esta TERMINADO, no
+  // pendiente. Contarlos juntos era lo que hacia que la pantalla dijera
+  // «quedan 6 por resolver» mientras el boton no encontraba un solo candidato.
+  it("separa al que no tiene etiquetas del que no se ha consultado", async () => {
     const { db, sqlite } = createTestDb();
-    seedStreams(sqlite, escuchas("Vacío", 2));
+    seedStreams(sqlite, [...escuchas("Vacío", 2), ...escuchas("Nuevo", 1)]);
     await guardarGeneros(db, "vacio", []);
 
     const r = await getGenreBreakdown(db, HISTORICO);
-    expect(r.conGeneros).toBe(0);
+    expect(r).toMatchObject({ conEtiquetas: 0, sinEtiquetas: 1, pendientes: 1 });
     expect(r.generos).toEqual([]);
+  });
+
+  it("el listado del botón solo trae a los que no se han consultado", async () => {
+    const { db, sqlite } = createTestDb();
+    seedStreams(sqlite, [...escuchas("Vacío", 2), ...escuchas("Nuevo", 1)]);
+    await guardarGeneros(db, "vacio", []);
+
+    const p = await getArtistasSinGeneros(db, HISTORICO);
+    expect(p.map((x) => x.key)).toEqual(["nuevo"]);
   });
 
   it("pondera cada género por las reproducciones de sus artistas", async () => {
@@ -229,6 +245,98 @@ describe("getGenreBreakdown", () => {
 
     const r = await getGenreBreakdown(db, HISTORICO);
     expect(r.generos).toEqual([]);
-    expect(r.conGeneros).toBe(0);
+    expect(r.conEtiquetas).toBe(0);
+  });
+
+  describe("los ejes", () => {
+    // Una de cada ocho etiquetas de Last.fm no es un genero: juntas, «female
+    // vocalists» le quitaba el puesto ocho a un genero de verdad.
+    it("saca del reparto de géneros lo que no lo es", async () => {
+      const { db, sqlite } = createTestDb();
+      seedStreams(sqlite, escuchas("Alguien", 5));
+      await guardarGeneros(db, "alguien", [
+        "shoegaze", "80s", "british", "female vocalists",
+      ]);
+
+      const r = await getGenreBreakdown(db, HISTORICO);
+      expect(r.generos.map((g) => g.name)).toEqual(["shoegaze"]);
+      expect(r.epocas.map((g) => g.name)).toEqual(["80s"]);
+      expect(r.procedencias.map((g) => g.name)).toEqual(["british"]);
+      expect(r.voces.map((g) => g.name)).toEqual(["female vocalists"]);
+    });
+
+    // El eje se cuenta sobre su propio total: con una sola epoca, esa epoca es
+    // el cien por cien de tus epocas aunque solo la lleve un artista.
+    it("reparte la proporción dentro de cada eje", async () => {
+      const { db, sqlite } = createTestDb();
+      seedStreams(sqlite, [...escuchas("Uno", 3), ...escuchas("Dos", 1)]);
+      await guardarGeneros(db, "uno", ["shoegaze", "80s"]);
+      await guardarGeneros(db, "dos", ["punk", "80s"]);
+
+      const r = await getGenreBreakdown(db, HISTORICO);
+      expect(r.epocas[0]).toMatchObject({ name: "80s", share: 1 });
+      expect(r.generos.map((g) => g.share)).toEqual([0.75, 0.25]);
+    });
+
+    // Sobre su propio eje, «female vocalists» daba 96 % en los datos reales
+    // —en Last.fm nadie etiqueta la voz masculina, se da por supuesta— y se
+    // leia como si el 96 % de la musica la tuviera. El denominador honesto son
+    // todos los artistas etiquetados.
+    it("cuenta aparte qué parte de tus artistas la lleva", async () => {
+      const { db, sqlite } = createTestDb();
+      seedStreams(sqlite, [
+        ...escuchas("Uno", 3), ...escuchas("Dos", 2), ...escuchas("Tres", 1),
+      ]);
+      await guardarGeneros(db, "uno", ["shoegaze", "female vocalists"]);
+      await guardarGeneros(db, "dos", ["punk"]);
+      await guardarGeneros(db, "tres", ["jazz"]);
+
+      const r = await getGenreBreakdown(db, HISTORICO);
+      // Es la unica etiqueta de voz, asi que sobre su eje es el 100 %...
+      expect(r.voces[0].share).toBe(1);
+      // ...pero solo la lleva uno de tus tres artistas etiquetados.
+      expect(r.voces[0].shareArtistas).toBeCloseTo(1 / 3);
+    });
+  });
+
+  describe("al abrir una etiqueta", () => {
+    it("lleva sus artistas, del que más aporta al que menos", async () => {
+      const { db, sqlite } = createTestDb();
+      seedStreams(sqlite, [...escuchas("Poco", 2), ...escuchas("Mucho", 9)]);
+      await guardarGeneros(db, "poco", ["shoegaze"]);
+      await guardarGeneros(db, "mucho", ["shoegaze"]);
+
+      const r = await getGenreBreakdown(db, HISTORICO);
+      expect(r.generos[0].top.map((a) => a.name)).toEqual(["Mucho", "Poco"]);
+      expect(r.generos[0].top[0].plays).toBe(9);
+    });
+  });
+
+  describe("la rareza", () => {
+    it("es la mediana de oyentes de sus artistas", async () => {
+      const { db, sqlite } = createTestDb();
+      seedStreams(sqlite, [
+        ...escuchas("A", 3), ...escuchas("B", 2), ...escuchas("C", 1),
+      ]);
+      for (const k of ["a", "b", "c"]) await guardarGeneros(db, k, ["shoegaze"]);
+      const ins = sqlite.prepare(
+        "INSERT INTO artist_stats (artist_key, listeners, fetched_at) VALUES (?, ?, ?)",
+      );
+      ins.run("a", 100, Date.now());
+      ins.run("b", 500, Date.now());
+      ins.run("c", 900_000, Date.now());
+
+      // Mediana y no media: el de novecientos mil arrastraria la media hasta
+      // hacerla mentir sobre un genero de nicho.
+      expect((await getGenreBreakdown(db, HISTORICO)).generos[0].oyentes).toBe(500);
+    });
+
+    it("es null si no se sabe de ninguno", async () => {
+      const { db, sqlite } = createTestDb();
+      seedStreams(sqlite, escuchas("A", 3));
+      await guardarGeneros(db, "a", ["shoegaze"]);
+
+      expect((await getGenreBreakdown(db, HISTORICO)).generos[0].oyentes).toBeNull();
+    });
   });
 });

@@ -10,7 +10,7 @@ import { getTopArtists, getTopTracks, getTopAlbums } from "@/lib/stats/tops";
 import { getByHour, getByWeekday, getByMonth, getByDate } from "@/lib/stats/time";
 import { getStreaks } from "@/lib/stats/streaks";
 import { getSkipStats, getMostSkippedArtists } from "@/lib/stats/skips";
-import { getGenreBreakdown, PROFUNDIDAD } from "@/lib/stats/genres";
+import { getGenreBreakdown } from "@/lib/stats/genres";
 import TopBar from "@/components/TopBar";
 import RangePicker from "@/components/stats/RangePicker";
 import StatTiles from "@/components/stats/StatTiles";
@@ -109,6 +109,9 @@ export default async function Portada({
         ...new Set([
           ...artistas.map((a) => a.key),
           ...masSaltados.map((a) => a.key),
+          // Los que salen al desplegar un genero. Van en la misma consulta:
+          // pedirlos aparte serian dos viajes para pintar la misma pantalla.
+          ...generos.generos.flatMap((g) => g.top.map((a) => a.key)),
         ]),
       ]),
       getCaratulas(db, "cancion", canciones.map((c) => c.key)),
@@ -353,9 +356,14 @@ export default async function Portada({
           <section className="px-8 py-12 hairline-b rise">
             <GenrePanel
               generos={generos.generos}
-              conGeneros={generos.conGeneros}
-              sinGeneros={generos.sinGeneros}
-              profundidad={PROFUNDIDAD}
+              epocas={generos.epocas}
+              procedencias={generos.procedencias}
+              voces={generos.voces}
+              analizados={generos.analizados}
+              conEtiquetas={generos.conEtiquetas}
+              sinEtiquetas={generos.sinEtiquetas}
+              pendientes={generos.pendientes}
+              imagenes={imagenesArtistas}
               rangeParams={params}
             />
           </section>
