@@ -157,6 +157,17 @@ export const SCHEMA_SQL = `
     fetched_at INTEGER NOT NULL
   );
 
+  -- Fragmento de 30 s para escuchar una sugerencia sin salir de la app.
+  -- Spotify retiro preview_url, asi que sale de iTunes o de Deezer. Se cachea
+  -- el fallo tambien, con url NULL: sin eso, una cancion que no esta en
+  -- ninguno de los dos se buscaria en cada pasada, para siempre.
+  CREATE TABLE IF NOT EXISTS preview (
+    clave      TEXT PRIMARY KEY,
+    url        TEXT,
+    fuente     TEXT,
+    fetched_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS lastfm_resolucion (
     clave      TEXT PRIMARY KEY,
     track_uri  TEXT,

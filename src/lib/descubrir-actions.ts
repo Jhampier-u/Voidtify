@@ -2,7 +2,7 @@
 import { sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { artistImagen, caratula, streams } from "@/db/schema";
+import { artistImagen, caratula, preview, streams } from "@/db/schema";
 import { requireSession } from "./require-session";
 import { spotifyFetch } from "./spotify";
 import { artistKey, trackKey } from "./stats/normalize";
@@ -22,6 +22,7 @@ import {
   semillaDeParams,
 } from "./descubrir/semillas";
 import { resolverUris } from "./descubrir/resolver";
+import { elegirPreview } from "./descubrir/preview";
 import type { Candidato } from "./descubrir/mezcla";
 
 export type Sugerencia = Candidato & { uri: string; caratula?: string };
@@ -327,4 +328,111 @@ async function buscarPlaylistsPropias(q: string): Promise<OpcionSemilla[]> {
     // Que Spotify no responda no debe vaciar el buscador: lo tuyo local sigue.
     return [];
   }
+}
+
+/** Cuánto se conserva un fragmento antes de volver a buscarlo. */
+const VIDA_PREVIEW_MS = 90 * 86_400_000;
+
+/** Cuánto se espera antes de reintentar una canción que no se encontró. */
+const REINTENTO_PREVIEW_MS = 14 * 86_400_000;
+
+type Encontrado = { url: string | null; fuente: string | null };
+
+/** Busca en iTunes, que cubre más, y cae a Deezer si no encuentra. */
+async function buscarPreviewFuera(
+  artista: string,
+  titulo: string,
+): Promise<Encontrado> {
+  const q = encodeURIComponent(`${artista} ${titulo}`);
+
+  try {
+    const r = await fetch(
+      `https://itunes.apple.com/search?term=${q}&entity=song&limit=5`,
+      { cache: "no-store", signal: AbortSignal.timeout(6000) },
+    );
+    if (r.ok) {
+      const d = (await r.json()) as {
+        results?: { artistName?: string; trackName?: string; previewUrl?: string }[];
+      };
+      const url = elegirPreview(
+        { artista, titulo },
+        (d.results ?? []).map((x) => ({
+          artista: x.artistName ?? "",
+          titulo: x.trackName ?? "",
+          preview: x.previewUrl,
+        })),
+      );
+      if (url) return { url, fuente: "itunes" };
+    }
+  } catch {
+    // Se sigue a Deezer: que un proveedor no conteste no debe dejar la
+    // tarjeta muda si el otro la tiene.
+  }
+
+  try {
+    const r = await fetch(`https://api.deezer.com/search?q=${q}&limit=5`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(6000),
+    });
+    if (r.ok) {
+      const d = (await r.json()) as {
+        data?: { title?: string; preview?: string; artist?: { name?: string } }[];
+      };
+      const url = elegirPreview(
+        { artista, titulo },
+        (d.data ?? []).map((x) => ({
+          artista: x.artist?.name ?? "",
+          titulo: x.title ?? "",
+          preview: x.preview,
+        })),
+      );
+      if (url) return { url, fuente: "deezer" };
+    }
+  } catch {
+    // Sin fragmento: la tarjeta se ve igual, solo que sin sonido.
+  }
+
+  return { url: null, fuente: null };
+}
+
+/**
+ * El fragmento de 30 segundos de una canción, cacheado.
+ *
+ * Se pide desde el cliente para la tarjeta que se está mirando y para la
+ * siguiente. Resolver las cuarenta de golpe serían ochenta llamadas a dos APIs
+ * ajenas antes de poder enseñar nada, y la mayoría se tirarían: casi nadie
+ * llega al final de la lista.
+ *
+ * El fallo se cachea igual, con una vida más corta: sin eso, una canción que no
+ * está en ninguno de los dos se buscaría en cada pasada para siempre; con una
+ * vida infinita, nunca se recuperaría de un mal día de la API.
+ */
+export async function obtenerPreview(
+  artista: string,
+  titulo: string,
+): Promise<string | null> {
+  await requireSession();
+  if (!artista?.trim() || !titulo?.trim()) return null;
+
+  const clave = trackKey(artista, titulo);
+  const ahora = Date.now();
+
+  const fila = db.all<{ url: string | null; fetched_at: number }>(sql`
+    SELECT ${preview.url} AS url, ${preview.fetchedAt} AS fetched_at
+    FROM ${preview} WHERE ${preview.clave} = ${clave}
+  `)[0];
+
+  if (fila) {
+    const vida = fila.url ? VIDA_PREVIEW_MS : REINTENTO_PREVIEW_MS;
+    if (ahora - fila.fetched_at < vida) return fila.url;
+  }
+
+  const { url, fuente } = await buscarPreviewFuera(artista, titulo);
+  const valores = { clave, url, fuente, fetchedAt: ahora };
+  await db
+    .insert(preview)
+    .values(valores)
+    .onConflictDoUpdate({ target: preview.clave, set: valores });
+
+  return url;
 }

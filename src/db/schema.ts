@@ -221,6 +221,23 @@ export const artistStats = sqliteTable("artist_stats", {
 export type ArtistStatsRow = typeof artistStats.$inferSelect;
 
 /**
+ * Fragmento de 30 segundos para escuchar una sugerencia sin salir de la app.
+ *
+ * Spotify retiró `preview_url`, así que sale de iTunes o de Deezer. Se cachea
+ * también el fallo, con `url` a null: sin eso, una canción que no está en
+ * ninguno de los dos se buscaría en cada pasada, para siempre.
+ */
+export const preview = sqliteTable("preview", {
+  clave: text("clave").primaryKey(),
+  url: text("url"),
+  /** 'itunes' | 'deezer'. Null cuando no se encontro. */
+  fuente: text("fuente"),
+  fetchedAt: integer("fetched_at").notNull(),
+});
+
+export type PreviewRow = typeof preview.$inferSelect;
+
+/**
  * Cache de la busqueda de un tema de Last.fm en el catalogo de Spotify.
  *
  * `trackUri` a null significa "buscado y no encontrado". Guardar tambien los

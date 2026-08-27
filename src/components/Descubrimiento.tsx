@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   listarDispositivos,
+  obtenerPreview,
   obtenerSugerencias,
   reproducir,
   type Dispositivo,
@@ -28,6 +29,13 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
   const [cargando, setCargando] = useState(false);
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Los fragmentos se piden de uno en uno y se guardan: volver atrás o repetir
+  // una tarjeta no debe costar otra consulta a dos APIs ajenas.
+  const [previews, setPreviews] = useState<Record<string, string | null>>({});
+  const [sonando, setSonando] = useState(false);
+  const [arrastre, setArrastre] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const inicioRef = useRef<number | null>(null);
 
   const lista = sugerencias
     ? soloNuevos
@@ -76,6 +84,59 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
       );
     }
   }, [actual, dispositivo]);
+
+  /**
+   * Trae el fragmento de la tarjeta que se mira y precarga la siguiente.
+   *
+   * Uno a uno y no las cuarenta de golpe: serían ochenta llamadas a dos APIs
+   * ajenas antes de poder enseñar nada, y casi nadie llega al final de la lista.
+   */
+  useEffect(() => {
+    if (!lista) return;
+    let vivo = true;
+
+    const traer = (s: Sugerencia | undefined) => {
+      if (!s) return;
+      setPreviews((p) => {
+        if (s.clave in p) return p;
+        void obtenerPreview(s.artista, s.titulo)
+          .then((url) => vivo && setPreviews((q) => ({ ...q, [s.clave]: url })))
+          .catch(() => vivo && setPreviews((q) => ({ ...q, [s.clave]: null })));
+        return { ...p, [s.clave]: null };
+      });
+    };
+
+    traer(lista[indice]);
+    traer(lista[indice + 1]);
+
+    return () => {
+      vivo = false;
+    };
+  }, [lista, indice]);
+
+  const urlPreview = actual ? previews[actual.clave] : null;
+
+  // Suena sola al cambiar de tarjeta. El navegador solo lo permite tras una
+  // interacción, y pulsar «Buscar sugerencias» ya cuenta como tal.
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (!urlPreview) {
+      a.pause();
+      return;
+    }
+    a.currentTime = 0;
+    void a.play().catch(() => {
+      // Si el navegador lo bloquea, queda el botón de reproducir.
+    });
+  }, [urlPreview]);
+
+  const alternarSonido = useCallback(() => {
+    const a = audioRef.current;
+    if (!a || !urlPreview) return;
+    if (a.paused) void a.play().catch(() => {});
+    else a.pause();
+  }, [urlPreview]);
 
   const pasar = useCallback(() => setIndice((i) => i + 1), []);
 
@@ -224,7 +285,41 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
 
       {/* La caratula manda: aqui estas juzgando musica que no conoces, y la
           portada es la mitad de la decision. */}
-      <article key={actual.clave} className="rise flex items-end gap-7 flex-wrap">
+      {/* El fragmento sale de iTunes o de Deezer: Spotify retiro preview_url.
+          `crossOrigin` no hace falta y romperia la peticion en Deezer. */}
+      <audio
+        ref={audioRef}
+        src={urlPreview ?? undefined}
+        onPlay={() => setSonando(true)}
+        onPause={() => setSonando(false)}
+        onEnded={() => setSonando(false)}
+        preload="auto"
+      />
+
+      <article
+        key={actual.clave}
+        onTouchStart={(e) => {
+          inicioRef.current = e.touches[0].clientX;
+        }}
+        onTouchMove={(e) => {
+          if (inicioRef.current === null) return;
+          setArrastre(e.touches[0].clientX - inicioRef.current);
+        }}
+        onTouchEnd={() => {
+          // Un cuarto de pantalla: menos que eso son toques accidentales al
+          // desplazarse, y mas obliga a un gesto incomodo con el pulgar.
+          const umbral = window.innerWidth / 4;
+          if (arrastre > umbral) guardar();
+          else if (arrastre < -umbral) pasar();
+          inicioRef.current = null;
+          setArrastre(0);
+        }}
+        style={{
+          transform: `translateX(${arrastre}px) rotate(${arrastre / 40}deg)`,
+          transition: arrastre === 0 ? "transform 220ms ease-out" : "none",
+        }}
+        className="rise flex touch-pan-y items-end gap-7 flex-wrap"
+      >
         <div className="relative">
           <span
             aria-hidden
@@ -264,11 +359,24 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
           ✗ Pasar
         </button>
         <button
+          onClick={alternarSonido}
+          disabled={!urlPreview}
+          title={
+            urlPreview
+              ? "Fragmento de 30 s"
+              : "No hay fragmento de esta canción"
+          }
+          className="label-mono border border-current px-5 py-3 transition-colors hover:text-acid disabled:opacity-30"
+        >
+          {sonando ? "❚❚ Pausa" : "▶ 30 s"}
+        </button>
+        <button
           onClick={escuchar}
           disabled={!dispositivo}
-          className="label-mono border border-current px-5 py-3 hover:text-acid transition-colors disabled:opacity-30"
+          title="Reproducir entera en tu Spotify"
+          className="label-mono border border-rule px-5 py-3 text-mute transition-colors hover:text-cream disabled:opacity-30"
         >
-          ▶ Escuchar
+          ↗ En Spotify
         </button>
         <button
           onClick={guardar}
@@ -276,7 +384,9 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
         >
           ✓ Guardar
         </button>
-        <span className="label-mono text-mute">← pasar · → guardar · espacio suena</span>
+        <span className="label-mono text-mute">
+          ← pasar · → guardar · o desliza con el dedo
+        </span>
       </div>
 
       {error && <p className="label-mono text-blood mt-6">{error}</p>}
