@@ -133,17 +133,6 @@ export const importBatches = sqliteTable("import_batches", {
 
 export type ImportBatchRow = typeof importBatches.$inferSelect;
 
-/** Puente entre los nombres del dump y los IDs de artista de Spotify. */
-export const artistResolution = sqliteTable("artist_resolution", {
-  artistKey: text("artist_key").primaryKey(),
-  spotifyArtistId: text("spotify_artist_id"),
-  imageUrl: text("image_url"),
-  resolvedAt: integer("resolved_at"),
-  attempts: integer("attempts").notNull().default(0),
-});
-
-export type ArtistResolutionRow = typeof artistResolution.$inferSelect;
-
 /** Foto periódica de los tops precalculados por Spotify. No son escuchas. */
 export const topSnapshots = sqliteTable("top_snapshots", {
   id: integer("id").primaryKey({ autoIncrement: true }),

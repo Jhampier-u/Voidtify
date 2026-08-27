@@ -94,14 +94,6 @@ export const SCHEMA_SQL = `
       status        TEXT
     );
 
-    CREATE TABLE IF NOT EXISTS artist_resolution (
-      artist_key        TEXT PRIMARY KEY,
-      spotify_artist_id TEXT,
-      image_url         TEXT,
-      resolved_at       INTEGER,
-      attempts          INTEGER NOT NULL DEFAULT 0
-    );
-
     CREATE TABLE IF NOT EXISTS top_snapshots (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
       taken_at     INTEGER NOT NULL,

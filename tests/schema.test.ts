@@ -16,7 +16,6 @@ describe("esquema", () => {
     expect(nombres).toContain("spotify_credentials");
     expect(nombres).toContain("capture_state");
     expect(nombres).toContain("import_batches");
-    expect(nombres).toContain("artist_resolution");
     expect(nombres).toContain("top_snapshots");
   });
 
@@ -27,14 +26,17 @@ describe("esquema", () => {
     expect(nombres).toContain("tags");
   });
 
-  // liked_tracks y smart_playlists se retiraron con /smart. La base real las
-  // conserva vacias —el DDL solo crea, nunca borra— pero el esquema ya no las
-  // declara, asi que nadie deberia volver a escribir en ellas.
-  it("ya no declara las tablas de las listas inteligentes", () => {
+  // Tres tablas retiradas: liked_tracks y smart_playlists se fueron con
+  // /smart, y artist_resolution nunca llego a usarse —la resolucion de
+  // artistas acabo viviendo en artist_imagen y lastfm_resolucion—. La base
+  // real las conserva vacias, porque el DDL solo crea y nunca borra, pero el
+  // esquema ya no las declara y nadie deberia volver a escribir en ellas.
+  it("ya no declara las tablas retiradas", () => {
     const { sqlite } = createTestDb();
     const nombres = tablas(sqlite);
     expect(nombres).not.toContain("liked_tracks");
     expect(nombres).not.toContain("smart_playlists");
+    expect(nombres).not.toContain("artist_resolution");
   });
 
   it("rechaza dos streams con el mismo dedup_key", () => {
