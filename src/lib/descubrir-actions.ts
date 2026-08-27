@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   artistImagen,
+  artistStats,
   caratula,
   descubrimientoVisto,
   preview,
@@ -16,6 +17,7 @@ import {
   guardarCaratula,
   mejorCaratula,
 } from "./capture/rellenar-caratulas";
+import { getArtistInfo } from "./lastfm";
 import { getCaratulas } from "./stats/imagenes";
 import { getCanon, getGenerosPorClave } from "./stats/genres";
 import { porEje } from "./stats/etiquetas";
@@ -492,4 +494,75 @@ export async function contarVistas(): Promise<{ pasadas: number; guardadas: numb
     pasadas: f.find((x) => x.decision === "pasada")?.n ?? 0,
     guardadas: f.find((x) => x.decision === "guardada")?.n ?? 0,
   };
+}
+
+/** Cuánto se conserva la cifra de oyentes antes de volver a pedirla. */
+const VIDA_OYENTES_MS = 60 * 86_400_000;
+
+/**
+ * Los oyentes que tiene un artista en Last.fm.
+ *
+ * Es la cifra que dice si un descubrimiento es una rareza o un nombre que
+ * conoce todo el mundo, y ningún servicio de recomendación te la enseña.
+ *
+ * Se cachea en `artist_stats`, la misma tabla que ya llena la captura para tus
+ * propios artistas: aquí son artistas que aún no escuchas, pero la pregunta y
+ * la forma del dato son idénticas, y tener dos tablas para lo mismo garantiza
+ * que se separen.
+ */
+export async function obtenerOyentes(artista: string): Promise<number | null> {
+  await requireSession();
+  if (!artista?.trim()) return null;
+
+  const clave = artistKey(artista);
+  const ahora = Date.now();
+
+  const fila = db.all<{ listeners: number | null; fetched_at: number }>(sql`
+    SELECT ${artistStats.listeners} AS listeners, ${artistStats.fetchedAt} AS fetched_at
+    FROM ${artistStats} WHERE ${artistStats.artistKey} = ${clave}
+  `)[0];
+
+  if (fila && ahora - fila.fetched_at < VIDA_OYENTES_MS) return fila.listeners;
+
+  const info = await getArtistInfo(artista);
+  const valores = {
+    artistKey: clave,
+    listeners: info.listeners ?? null,
+    playcount: info.playcount ?? null,
+    fetchedAt: ahora,
+  };
+  try {
+    await db
+      .insert(artistStats)
+      .values(valores)
+      .onConflictDoUpdate({ target: artistStats.artistKey, set: valores });
+  } catch (e) {
+    console.warn("[descubrir] no se pudieron guardar los oyentes", e);
+  }
+
+  return valores.listeners;
+}
+
+/**
+ * Los oyentes de varios artistas, para poder filtrar por rareza.
+ *
+ * En serie porque el limitador de Last.fm es una cola única: lanzarlas en
+ * paralelo no las aceleraría. El cliente lo llama de fondo mientras deslizas
+ * las primeras tarjetas, así que los segundos que tarda no se notan.
+ *
+ * Lo ya cacheado no cuesta ninguna petición, de modo que la segunda vez que
+ * aparece un artista la respuesta es inmediata.
+ */
+export async function obtenerOyentesDeVarios(
+  artistas: string[],
+): Promise<Record<string, number | null>> {
+  await requireSession();
+
+  const salida: Record<string, number | null> = {};
+  // Se deduplica antes de pedir: en una tanda de cuarenta es normal que el
+  // mismo artista aparezca con tres canciones distintas.
+  for (const nombre of [...new Set(artistas.map((a) => a.trim()).filter(Boolean))]) {
+    salida[artistKey(nombre)] = await obtenerOyentes(nombre);
+  }
+  return salida;
 }

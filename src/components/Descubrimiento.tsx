@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   listarDispositivos,
   anotarDecision,
+  obtenerOyentesDeVarios,
   obtenerPreview,
   obtenerSugerencias,
   reproducir,
@@ -13,6 +14,13 @@ import {
 import { createPlaylistFromTracks } from "@/lib/spotify-actions";
 import Miniatura from "@/components/stats/Miniatura";
 import SelectorSemilla, { type SemillaElegida } from "@/components/SelectorSemilla";
+import {
+  ETIQUETAS,
+  oyentesCompactos,
+  pasaRareza,
+  type NivelRareza,
+} from "@/lib/descubrir/rareza";
+import { artistKey } from "@/lib/stats/normalize";
 
 export default function Descubrimiento({ preset }: { preset?: string }) {
   const [semilla, setSemilla] = useState<SemillaElegida | null>(null);
@@ -38,12 +46,29 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inicioRef = useRef<number | null>(null);
   const rellenandoRef = useRef(false);
+  // Los oyentes se piden de fondo para toda la tanda: el filtro por rareza no
+  // sirve hasta tenerlos, y pedirlos antes de enseñar nada serian diez
+  // segundos de espera en blanco.
+  const [oyentes, setOyentes] = useState<Record<string, number | null>>({});
+  const [nivel, setNivel] = useState<NivelRareza>("todo");
 
-  const lista = sugerencias
+  const porNuevos = sugerencias
     ? soloNuevos
       ? sugerencias.filter((s) => !s.artistaConocido)
       : sugerencias
     : null;
+
+  const lista = porNuevos
+    ? porNuevos.filter((s) => pasaRareza(oyentes[artistKey(s.artista)], nivel))
+    : null;
+
+  /** Los que el filtro esconde solo porque aún no se sabe cuánto se escuchan. */
+  const sinDato =
+    nivel === "todo" || !porNuevos
+      ? 0
+      : porNuevos.filter(
+          (s) => typeof oyentes[artistKey(s.artista)] !== "number",
+        ).length;
   const actual = lista?.[indice];
   const quedan = lista ? lista.length - indice : 0;
   const nuevos = sugerencias?.filter((s) => !s.artistaConocido).length ?? 0;
@@ -117,6 +142,35 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
   }, [lista, indice]);
 
   const urlPreview = actual ? previews[actual.clave] : null;
+  const oyentesActual = actual ? oyentes[artistKey(actual.artista)] : undefined;
+
+  /**
+   * Trae los oyentes de la tanda, de fondo.
+   *
+   * En serie contra Last.fm, que serializa igual: lo que se gana es que el
+   * filtro por rareza esté listo a los pocos segundos sin haber retrasado la
+   * primera tarjeta.
+   */
+  useEffect(() => {
+    if (!sugerencias) return;
+    let vivo = true;
+    const faltan = [
+      ...new Set(
+        sugerencias
+          .map((s) => s.artista)
+          .filter((a) => !(artistKey(a) in oyentes)),
+      ),
+    ];
+    if (faltan.length === 0) return;
+
+    void obtenerOyentesDeVarios(faltan)
+      .then((r) => vivo && setOyentes((o) => ({ ...o, ...r })))
+      .catch(() => {});
+
+    return () => {
+      vivo = false;
+    };
+  }, [sugerencias, oyentes]);
 
   /**
    * Rellena la cola antes de que se acabe.
@@ -308,6 +362,11 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
       <div className="flex items-center justify-between label-mono text-mute mb-10 flex-wrap gap-4">
         <span className="num-tabular">
           {quedan} por ver · {guardadas.length} guardadas
+          {/* Sin esto, una lista corta parece un error en vez de un filtro
+              que todavía no tiene todos los datos. */}
+          {sinDato > 0 && (
+            <span className="text-mute/70"> · {sinDato} por comprobar</span>
+          )}
         </span>
         <button
           onClick={() => {
@@ -320,6 +379,27 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
         >
           Solo artistas nuevos ({nuevos})
         </button>
+
+        {/* La rareza sale de los oyentes en Last.fm. Ningún servicio de
+            recomendación te deja pedir «solo lo desconocido». */}
+        <span className="flex items-center gap-2">
+          {(["todo", "poco", "rareza"] as NivelRareza[]).map((n) => (
+            <button
+              key={n}
+              onClick={() => {
+                setNivel(n);
+                setIndice(0);
+              }}
+              className={`label-mono rounded-full border px-3 py-1 transition-colors ${
+                nivel === n
+                  ? "border-acid text-acid"
+                  : "border-rule text-mute hover:text-cream"
+              }`}
+            >
+              {ETIQUETAS[n]}
+            </button>
+          ))}
+        </span>
         {dispositivos.length > 0 ? (
           <label className="flex items-center gap-2">
             <span>Sonar en</span>
@@ -400,6 +480,17 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
             <span className="text-mute">
               por {actual.desde}
             </span>
+            {typeof oyentesActual === "number" && (
+              <>
+                {" · "}
+                <span
+                  className="text-mute"
+                  title="oyentes en Last.fm"
+                >
+                  {oyentesCompactos(oyentesActual)} oyentes
+                </span>
+              </>
+            )}
           </p>
           <h2 className="display-italic text-[clamp(1.8rem,5vw,3.4rem)] leading-[0.95] break-words mb-3">
             {actual.titulo}
