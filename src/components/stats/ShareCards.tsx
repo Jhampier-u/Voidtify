@@ -1,21 +1,36 @@
+"use client";
+
+import { useState } from "react";
 import type { StatsRange } from "@/lib/stats/range";
+import { FORMATOS, type NombreFormato } from "@/lib/tarjetas/tipos";
 
 const TARJETAS = [
-  { tipo: "resumen", label: "Resumen", nota: "horas, reproducciones y tu número uno" },
-  { tipo: "top-artistas", label: "Top artistas", nota: "tus cinco más escuchados" },
+  { tipo: "cartel", label: "Cartel", nota: "tus artistas como cartel de festival" },
+  { tipo: "resumen", label: "Resumen", nota: "las horas, sobre tus carátulas" },
+  { tipo: "top-artistas", label: "Top artistas", nota: "los cinco, con su foto" },
   { tipo: "racha", label: "Racha", nota: "días seguidos con música" },
 ] as const;
 
+const NOMBRES: Record<NombreFormato, string> = {
+  historia: "Historia 9:16",
+  cuadrado: "Cuadrado 1:1",
+};
+
 /**
- * Enlaces a las tarjetas PNG de 1080×1920.
+ * Las tarjetas para compartir, con vista previa.
  *
- * Son `<a>` normales con `download`, no botones: la ruta devuelve la imagen
- * directamente y el navegador la guarda. Nada de JavaScript de por medio.
+ * Antes eran cuatro enlaces de descarga a ciegas: pulsabas y te bajabas un PNG
+ * sin haberlo visto nunca. Eso no era solo incómodo de usar — es la razón de
+ * que las tarjetas fueran tipografía sobre negro durante meses, porque quien
+ * las hacía tampoco las veía.
  *
- * El rango activo viaja en la URL, así que la tarjeta describe exactamente lo
- * que el usuario está mirando.
+ * La previa es la misma ruta que la descarga, así que lo que se ve es
+ * exactamente el archivo que se guarda.
  */
 export default function ShareCards({ range }: { range: StatsRange }) {
+  const [tipo, setTipo] = useState<string>(TARJETAS[0].tipo);
+  const [formato, setFormato] = useState<NombreFormato>("historia");
+
   const query = new URLSearchParams();
   if (range.preset === "custom") {
     query.set("desde", range.fromDate);
@@ -23,29 +38,89 @@ export default function ShareCards({ range }: { range: StatsRange }) {
   } else {
     query.set("preset", range.preset);
   }
-  const qs = query.toString();
+  query.set("formato", formato);
+
+  const src = `/api/card/${tipo}?${query}`;
+  const medidas = FORMATOS[formato];
+  const elegida = TARJETAS.find((t) => t.tipo === tipo)!;
 
   return (
     <section>
-      <p className="label-mono text-mute mb-5">
-        Compartir · imágenes de 1080×1920
-      </p>
-
-      <ul className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-rule">
-        {TARJETAS.map((t, i) => (
-          <li key={t.tipo} className="bg-ink">
-            <a
-              href={`/api/card/${t.tipo}?${qs}`}
-              download={`voidtify-${t.tipo}.png`}
-              className="flex flex-col gap-2 px-5 py-6 hover:bg-ink-2 transition-colors rise"
-              style={{ animationDelay: `${i * 60}ms` }}
+      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+        <h2 className="display-italic text-[clamp(1.8rem,4vw,3rem)]">
+          Para enseñarlo.
+        </h2>
+        <div className="flex gap-2">
+          {(Object.keys(FORMATOS) as NombreFormato[]).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFormato(f)}
+              className={`label-mono rounded-full border px-4 py-1.5
+                          transition-colors duration-200 ${
+                            formato === f
+                              ? "border-acid text-acid"
+                              : "border-rule text-mute hover:text-cream"
+                          }`}
             >
-              <span className="label-mono text-acid">{t.label} ↓</span>
-              <span className="font-serif italic text-cream-dim">{t.nota}</span>
-            </a>
-          </li>
-        ))}
-      </ul>
+              {NOMBRES[f]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <ul className="flex flex-col gap-1">
+          {TARJETAS.map((t) => (
+            <li key={t.tipo}>
+              <button
+                type="button"
+                onClick={() => setTipo(t.tipo)}
+                className={`flex w-full flex-col gap-1 rounded-xl px-4 py-3 text-left
+                            transition-colors duration-200
+                            outline-none focus-visible:ring-1 focus-visible:ring-acid ${
+                              tipo === t.tipo
+                                ? "bg-ink-2 ring-1 ring-acid/40"
+                                : "hover:bg-ink-2/50"
+                            }`}
+              >
+                <span
+                  className={`label-mono ${
+                    tipo === t.tipo ? "text-acid" : "text-mute"
+                  }`}
+                >
+                  {t.label}
+                </span>
+                <span className="font-serif italic text-cream-dim">{t.nota}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <div className="flex flex-col items-start gap-4">
+          {/* Sin `next/image`: el optimizador cachearía la tarjeta y al cambiar
+              de rango seguiría enseñando la anterior. La clave fuerza además
+              que el navegador rehaga la petición al cambiar de tipo. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            key={src}
+            src={src}
+            alt={`Tarjeta de ${elegida.label}`}
+            width={medidas.ancho}
+            height={medidas.alto}
+            className="w-full max-w-[420px] rounded-xl ring-1 ring-rule"
+          />
+
+          <a
+            href={src}
+            download={`voidtify-${tipo}-${formato}.png`}
+            className="label-mono rounded-full border border-current px-5 py-2
+                       transition-colors duration-200 hover:text-acid"
+          >
+            Descargar {medidas.ancho}×{medidas.alto} ↓
+          </a>
+        </div>
+      </div>
     </section>
   );
 }
