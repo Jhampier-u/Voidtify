@@ -2,7 +2,7 @@ import { inArray, sql } from "drizzle-orm";
 import { artistGenres, artistStats, streams } from "@/db/schema";
 import type { StatsRange } from "./range";
 import { contadas, enRango, type Db } from "./shared";
-import { porEje, type Eje } from "./etiquetas";
+import { crearCanon, porEje, type Canon, type Eje } from "./etiquetas";
 
 export type ArtistaDeEtiqueta = {
   key: string;
@@ -11,6 +11,9 @@ export type ArtistaDeEtiqueta = {
 };
 
 export type EntradaEtiqueta = {
+  /** Clave de agrupación: sin guiones ni espacios, para cruzar entre pantallas. */
+  clave: string;
+  /** La ortografía que se enseña, la más frecuente del grupo de variantes. */
   name: string;
   /** Reproducciones atribuidas a esta etiqueta. */
   plays: number;
@@ -114,12 +117,14 @@ function componer(
   acumulado: Map<string, Acumulado>,
   limite: number,
   conEtiquetas: number,
+  canon: Canon,
 ): EntradaEtiqueta[] {
   const total = [...acumulado.values()].reduce((n, v) => n + v.plays, 0);
 
   return [...acumulado.entries()]
-    .map(([name, v]) => ({
-      name,
+    .map(([clave, v]) => ({
+      clave,
+      name: canon.nombre(clave),
       plays: v.plays,
       artistas: v.artistas.length,
       share: total === 0 ? 0 : v.plays / total,
@@ -188,6 +193,13 @@ export async function getGenreBreakdown(
   const porClave = new Map(
     cacheados.map((c) => [c.artistKey, parseGeneros(c.genres)]),
   );
+
+  // El canon se construye sobre el vocabulario entero y no sobre los artistas
+  // del rango: si cada rango eligiera su ortografía, «lo-fi» podría llamarse
+  // «lo fi» en un preset y no cruzaría con el resto de la sección.
+  const canon = crearCanon((await db.select().from(artistGenres)).map((f) =>
+    parseGeneros(f.genres),
+  ));
   const oyentesDe = new Map(
     popularidad
       .filter((p) => p.listeners !== null)
@@ -235,12 +247,12 @@ export async function getGenreBreakdown(
   }
 
   return {
-    generos: componer(ejes.genero, limite, conEtiquetas),
+    generos: componer(ejes.genero, limite, conEtiquetas, canon),
     // Los otros tres ejes tienen un vocabulario mucho más corto y no compiten
     // por el sitio: con seis se ve el reparto entero sin ocupar media pantalla.
-    epocas: componer(ejes.epoca, 6, conEtiquetas),
-    procedencias: componer(ejes.procedencia, 6, conEtiquetas),
-    voces: componer(ejes.voz, 2, conEtiquetas),
+    epocas: componer(ejes.epoca, 6, conEtiquetas, canon),
+    procedencias: componer(ejes.procedencia, 6, conEtiquetas, canon),
+    voces: componer(ejes.voz, 2, conEtiquetas, canon),
     analizados: top.length,
     conEtiquetas,
     sinEtiquetas,
@@ -294,6 +306,12 @@ export async function guardarGeneros(
     .insert(artistGenres)
     .values(valores)
     .onConflictDoUpdate({ target: artistGenres.artistKey, set: valores });
+}
+
+/** El canon de ortografías, sobre el vocabulario entero. */
+export async function getCanon(db: Db): Promise<Canon> {
+  const filas = await db.select().from(artistGenres);
+  return crearCanon(filas.map((f) => parseGeneros(f.genres)));
 }
 
 /**

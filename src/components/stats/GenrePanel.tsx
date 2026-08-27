@@ -108,6 +108,7 @@ export default function GenrePanel({
 
   const restantes = ultimo?.restantes ?? pendientes;
   const max = Math.max(1, ...generos.map((g) => g.plays));
+  // El movimiento y la vida vienen indexados por clave, no por ortografia.
   const deltaDe = new Map(movimiento.map((m) => [m.name, m.delta]));
 
   if (generos.length === 0) {
@@ -144,8 +145,8 @@ export default function GenrePanel({
               <li key={g.name}>
                 <button
                   type="button"
-                  onClick={() => abrir(g.name)}
-                  aria-expanded={abierto === g.name}
+                  onClick={() => abrir(g.clave)}
+                  aria-expanded={abierto === g.clave}
                   className="group flex w-full items-center gap-3 rounded-lg px-1 py-1
                              text-left transition-colors duration-200 hover:bg-ink-2/40
                              outline-none focus-visible:ring-1 focus-visible:ring-acid"
@@ -153,13 +154,13 @@ export default function GenrePanel({
                   <span
                     className={`w-40 shrink-0 truncate transition-colors duration-200
                                 group-hover:text-acid ${
-                                  abierto === g.name ? "text-acid" : ""
+                                  abierto === g.clave ? "text-acid" : ""
                                 }`}
                   >
                     {g.name}
                   </span>
 
-                  <Delta valor={deltaDe.get(g.name)} />
+                  <Delta valor={deltaDe.get(g.clave)} />
 
                   <span className="h-3 flex-1 overflow-hidden rounded-full bg-ink-2">
                     <span
@@ -190,24 +191,24 @@ export default function GenrePanel({
                   </span>
                 </button>
 
-                {abierto === g.name && (
+                {abierto === g.clave && (
                   <div className="mb-2 mt-1 rounded-xl bg-ink-2/40 p-4 ring-1 ring-rule">
                     <p className="dato-mono text-mute mb-3">
                       {g.artistas.toLocaleString("es")}{" "}
                       {g.artistas === 1 ? "artista tuyo" : "artistas tuyos"} ·{" "}
                       {g.plays.toLocaleString("es")} reproducciones
-                      {vida[g.name] && (
+                      {vida[g.clave] && (
                         <>
                           <span className="text-rule"> · </span>
                           en tu vida desde{" "}
                           <span className="text-cream-dim">
-                            {mesLargo(vida[g.name].primera)}
+                            {mesLargo(vida[g.clave].primera)}
                           </span>
                         </>
                       )}
                     </p>
 
-                    <Ritmo ritmo={ritmos[g.name]} />
+                    <Ritmo ritmo={ritmos[g.clave]} />
 
                     <ul className="flex flex-wrap gap-2">
                       {g.top.map((a) => (

@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { streams } from "@/db/schema";
 import { contadas, type Db } from "./shared";
-import { porEje } from "./etiquetas";
+import { porEje, type Canon } from "./etiquetas";
 
 export type VidaArtista = {
   key: string;
@@ -68,6 +68,8 @@ export async function getVidaDeArtistas(
 }
 
 export type VidaGenero = {
+  clave: string;
+  /** La ortografía que se enseña. */
   name: string;
   /** Primer día en que sonó algo de este género, en todo tu historial. */
   primera: string;
@@ -86,6 +88,7 @@ export type VidaGenero = {
 export function construirVidaDeGeneros(
   artistas: VidaArtista[],
   generosPorClave: Map<string, string[]>,
+  canon: Canon,
   porArtista = 3,
 ): Map<string, VidaGenero> {
   const salida = new Map<string, VidaGenero>();
@@ -96,7 +99,8 @@ export function construirVidaDeGeneros(
 
     for (const g of porEje(tags).genero.slice(0, porArtista)) {
       const v = salida.get(g) ?? {
-        name: g,
+        clave: g,
+        name: canon.nombre(g),
         primera: a.primera,
         ultima: a.ultima,
         total: 0,

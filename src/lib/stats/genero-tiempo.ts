@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { streams } from "@/db/schema";
 import { contadas, enRango, type Db } from "./shared";
 import type { StatsRange } from "./range";
-import { porEje } from "./etiquetas";
+import { porEje, type Canon } from "./etiquetas";
 
 export type Granularidad = "mes" | "semana";
 
@@ -71,6 +71,7 @@ export type PuntoMezcla = {
 };
 
 export type Mezcla = {
+  /** Ortografías ya canónicas, listas para enseñar. */
   generos: string[];
   granularidad: Granularidad;
   puntos: PuntoMezcla[];
@@ -123,17 +124,19 @@ function siguiente(periodo: string, granularidad: Granularidad): string {
 export function construirMezcla(
   filas: FilaMes[],
   generosPorClave: Map<string, string[]>,
-  /** Los géneros que se dibujan, en orden. */
-  generos: string[],
+  /** Los géneros que se dibujan, en orden. Son claves, no ortografías. */
+  claves: string[],
+  canon: Canon,
   granularidad: Granularidad = "mes",
   /** Cuántas etiquetas de género se le atribuyen a cada artista. */
   porArtista = 3,
 ): Mezcla {
-  if (filas.length === 0 || generos.length === 0) {
+  const generos = claves.map((c) => canon.nombre(c));
+  if (filas.length === 0 || claves.length === 0) {
     return { generos, granularidad, puntos: [] };
   }
 
-  const indice = new Map(generos.map((g, i) => [g, i]));
+  const indice = new Map(claves.map((c, i) => [c, i]));
 
   // periodo -> [plays por género dibujado, plays de todo lo demás]
   const acumulado = new Map<string, { partes: number[]; otros: number }>();
@@ -141,7 +144,7 @@ export function construirMezcla(
   for (const f of filas) {
     const tags = generosPorClave.get(f.key);
     const acc = acumulado.get(f.periodo) ?? {
-      partes: Array<number>(generos.length).fill(0),
+      partes: Array<number>(claves.length).fill(0),
       otros: 0,
     };
     acumulado.set(f.periodo, acc);
@@ -181,7 +184,7 @@ export function construirMezcla(
       partes:
         acc && total > 0
           ? acc.partes.map((p) => p / total)
-          : Array<number>(generos.length).fill(0),
+          : Array<number>(claves.length).fill(0),
       otros: acc && total > 0 ? acc.otros / total : 0,
     });
 

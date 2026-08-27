@@ -5,6 +5,7 @@ import {
   inicioDeVentana,
   type VidaArtista,
 } from "@/lib/stats/vida-generos";
+import { crearCanon } from "@/lib/stats/etiquetas";
 
 describe("inicioDeVentana", () => {
   it("resta dias de calendario", () => {
@@ -30,10 +31,17 @@ const artista = (
 
 const mapa = (o: Record<string, string[]>) => new Map(Object.entries(o));
 
+/** El canon del vocabulario que use cada prueba. */
+const canonDe = (o: Record<string, string[]>) => crearCanon(Object.values(o));
+
 describe("construirVidaDeGeneros", () => {
   it("no inventa géneros para artistas sin etiquetas", () => {
     expect(
-      construirVidaDeGeneros([artista("a", "2020-01-01", "2020-02-01")], mapa({}))
+      construirVidaDeGeneros(
+        [artista("a", "2020-01-01", "2020-02-01")],
+        mapa({}),
+        canonDe({}),
+      )
         .size,
     ).toBe(0);
   });
@@ -47,6 +55,7 @@ describe("construirVidaDeGeneros", () => {
         artista("nuevo", "2023-06-15", "2026-08-20"),
       ],
       mapa({ viejo: ["shoegaze"], nuevo: ["shoegaze"] }),
+      canonDe({ viejo: ["shoegaze"], nuevo: ["shoegaze"] }),
     );
     expect(v.get("shoegaze")).toMatchObject({
       primera: "2019-03-27",
@@ -61,6 +70,7 @@ describe("construirVidaDeGeneros", () => {
         artista("b", "2021-01-01", "2026-01-01", 70, 0),
       ],
       mapa({ a: ["indie"], b: ["indie"] }),
+      canonDe({ a: ["indie"], b: ["indie"] }),
     );
     expect(v.get("indie")).toMatchObject({ total: 100, recientes: 5 });
   });
@@ -69,6 +79,7 @@ describe("construirVidaDeGeneros", () => {
     const v = construirVidaDeGeneros(
       [artista("a", "2020-01-01", "2020-02-01")],
       mapa({ a: ["indie", "punk", "jazz", "folk"] }),
+      canonDe({ a: ["indie", "punk", "jazz", "folk"] }),
       3,
     );
     expect([...v.keys()]).toEqual(["indie", "punk", "jazz"]);
@@ -78,6 +89,7 @@ describe("construirVidaDeGeneros", () => {
     const v = construirVidaDeGeneros(
       [artista("a", "2020-01-01", "2020-02-01")],
       mapa({ a: ["80s", "british", "indie"] }),
+      canonDe({ a: ["80s", "british", "indie"] }),
     );
     expect([...v.keys()]).toEqual(["indie"]);
   });
@@ -90,7 +102,7 @@ describe("dormidos", () => {
     new Map(
       entradas.map(([name, ultima, total, recientes]) => [
         name,
-        { name, primera: "2018-01-01", ultima, total, recientes },
+        { clave: name, name, primera: "2018-01-01", ultima, total, recientes },
       ]),
     );
 
@@ -129,5 +141,21 @@ describe("dormidos", () => {
       2,
     );
     expect(d).toHaveLength(2);
+  });
+
+  // El caso que motivo todo esto: `lo-fi` salia entre lo mas escuchado y
+  // `lo fi` entre lo que llevabas meses sin tocar, siendo lo mismo.
+  it("no da por dormida una variante de un género que sigue vivo", () => {
+    const corpus = { vivo: ["lo-fi"], viejo: ["lo fi"] };
+    const v = construirVidaDeGeneros(
+      [
+        artista("vivo", "2020-01-01", "2026-08-20", 300, 50),
+        artista("viejo", "2019-01-01", "2026-01-01", 300, 0),
+      ],
+      mapa(corpus),
+      canonDe(corpus),
+    );
+    expect(v.size).toBe(1);
+    expect(dormidos(v)).toEqual([]);
   });
 });

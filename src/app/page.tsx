@@ -10,7 +10,11 @@ import { getTopArtists, getTopTracks, getTopAlbums } from "@/lib/stats/tops";
 import { getByHour, getByWeekday, getByMonth, getByDate } from "@/lib/stats/time";
 import { getStreaks } from "@/lib/stats/streaks";
 import { getSkipStats, getMostSkippedArtists } from "@/lib/stats/skips";
-import { getGenreBreakdown, getGenerosPorClave } from "@/lib/stats/genres";
+import {
+  getCanon,
+  getGenreBreakdown,
+  getGenerosPorClave,
+} from "@/lib/stats/genres";
 import { compararGeneros, salieron } from "@/lib/stats/comparar-generos";
 import {
   construirVidaDeGeneros,
@@ -166,25 +170,30 @@ export default async function Portada({
   // Se carga una sola vez: lo usan la mezcla en el tiempo y la vida de cada
   // genero, y son tres mil filas.
   const generosPorClave = await getGenerosPorClave(db);
+  const canon = await getCanon(db);
 
   // Que sube y que baja. Se piden sesenta del periodo anterior y no veinticuatro
   // para que un genero que cae del puesto veinte al treinta ensene una caida y
   // no un «salio de la lista», que diria bastante menos.
   const anterior = rangoAnterior(range);
-  const generosAntes = anterior
-    ? (await getGenreBreakdown(db, anterior, 60)).generos.map((g) => g.name)
+  // Se compara por clave y no por ortografia: son dos rangos distintos y cada
+  // uno podria haber elegido una variante, con lo que el mismo genero pareceria
+  // nuevo en uno y desaparecido en el otro.
+  const clavesAhora = generos.generos.map((g) => g.clave);
+  const clavesAntes = anterior
+    ? (await getGenreBreakdown(db, anterior, 60)).generos.map((g) => g.clave)
     : [];
-  const movimiento = compararGeneros(
-    generos.generos.map((g) => g.name),
-    generosAntes,
-  );
-  const salen = anterior ? salieron(generos.generos.map((g) => g.name), generosAntes) : [];
+  const movimiento = compararGeneros(clavesAhora, clavesAntes);
+  const salen = anterior
+    ? salieron(clavesAhora, clavesAntes).map((c) => canon.nombre(c))
+    : [];
 
   // Cuando entro cada genero en tu vida y cual lleva tiempo sin sonar. Va
   // contra todo el historial y no contra el rango: la pregunta es esa.
   const vidaGeneros = construirVidaDeGeneros(
     await getVidaDeArtistas(db, inicioDeVentana(hoy, DIAS_DORMIDO)),
     generosPorClave,
+    canon,
   );
 
   // Por meses cuando hay meses suficientes y por semanas cuando no. Antes se
@@ -192,7 +201,7 @@ export default async function Portada({
   // semanas, que abarcan dos meses— el grafico no se dibujaba nunca: la
   // funcion mas grande de la seccion era invisible justo donde mas se mira.
   const granularidad = meses.length >= MINIMO_PERIODOS ? "mes" : "semana";
-  const bandas = generos.generos.slice(0, 8).map((g) => g.name);
+  const bandas = generos.generos.slice(0, 8).map((g) => g.clave);
 
   let mezcla = null;
   if (bandas.length >= 2) {
@@ -201,7 +210,13 @@ export default async function Portada({
         ? await getMezclaPorMes(db, range)
         : await getMezclaPorSemana(db, range);
 
-    const candidata = construirMezcla(filas, generosPorClave, bandas, granularidad);
+    const candidata = construirMezcla(
+      filas,
+      generosPorClave,
+      bandas,
+      canon,
+      granularidad,
+    );
     // Con menos de cuatro puntos la superficie degenera: dos puntos unidos
     // dibujan una transicion suave que nadie vivio.
     if (candidata.puntos.length >= MINIMO_PERIODOS) mezcla = candidata;

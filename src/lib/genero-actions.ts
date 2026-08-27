@@ -8,7 +8,7 @@ import { parseRange } from "@/lib/stats/range";
 import { resolveTimeZone } from "@/lib/stats/local-time";
 import { enRango } from "@/lib/stats/shared";
 import { getGenerosPorClave } from "@/lib/stats/genres";
-import { porEje } from "@/lib/stats/etiquetas";
+import { claveEtiqueta, porEje } from "@/lib/stats/etiquetas";
 
 export type Franja = { nombre: string; plays: number; share: number };
 
@@ -47,6 +47,7 @@ const POR_ARTISTA = 3;
  * un trozo del rango sin que nada lo advirtiera.
  */
 export async function getRitmoDeGenero(
+  /** La clave del género, no su ortografía: `lofi`, no `lo-fi`. */
   genero: string,
   preset?: string,
   desde?: string,
@@ -61,7 +62,7 @@ export async function getRitmoDeGenero(
   );
 
   const porClave = await getGenerosPorClave(db);
-  const buscado = genero.toLowerCase();
+  const buscado = claveEtiqueta(genero);
   const claves = [...porClave.entries()]
     .filter(([, tags]) =>
       porEje(tags).genero.slice(0, POR_ARTISTA).includes(buscado),
