@@ -2,7 +2,13 @@
 import { sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { artistImagen, caratula, preview, streams } from "@/db/schema";
+import {
+  artistImagen,
+  caratula,
+  descubrimientoVisto,
+  preview,
+  streams,
+} from "@/db/schema";
 import { requireSession } from "./require-session";
 import { spotifyFetch } from "./spotify";
 import { artistKey, trackKey } from "./stats/normalize";
@@ -435,4 +441,55 @@ export async function obtenerPreview(
     .onConflictDoUpdate({ target: preview.clave, set: valores });
 
   return url;
+}
+
+/**
+ * Anota lo que decidiste sobre una sugerencia.
+ *
+ * Con esto deja de volver a aparecer. Se guarda igual si la pasas que si la
+ * guardas: en los dos casos ya diste una respuesta.
+ *
+ * No devuelve nada ni falla hacia fuera. Es una anotación de fondo: si la
+ * escritura falla, lo peor que pasa es que la canción vuelva a salir algún día,
+ * y eso no justifica cortarle el paso a quien está deslizando.
+ */
+export async function anotarDecision(
+  artista: string,
+  titulo: string,
+  decision: "pasada" | "guardada",
+): Promise<void> {
+  await requireSession();
+  if (!artista?.trim() || !titulo?.trim()) return;
+
+  const valores = {
+    clave: trackKey(artista, titulo),
+    decision,
+    artista,
+    titulo,
+    vistaEn: Date.now(),
+  };
+
+  try {
+    await db
+      .insert(descubrimientoVisto)
+      .values(valores)
+      // Guardar pesa mas que pasar: si primero la pasaste y luego la guardas
+      // desde otra semilla, la decision buena es la ultima.
+      .onConflictDoUpdate({ target: descubrimientoVisto.clave, set: valores });
+  } catch (e) {
+    console.warn("[descubrir] no se pudo anotar la decision", e);
+  }
+}
+
+/** Cuántas sugerencias has descartado o guardado, para poder contarlo. */
+export async function contarVistas(): Promise<{ pasadas: number; guardadas: number }> {
+  await requireSession();
+  const f = db.all<{ decision: string; n: number }>(sql`
+    SELECT ${descubrimientoVisto.decision} AS decision, COUNT(*) AS n
+    FROM ${descubrimientoVisto} GROUP BY decision
+  `);
+  return {
+    pasadas: f.find((x) => x.decision === "pasada")?.n ?? 0,
+    guardadas: f.find((x) => x.decision === "guardada")?.n ?? 0,
+  };
 }

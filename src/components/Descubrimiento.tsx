@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   listarDispositivos,
+  anotarDecision,
   obtenerPreview,
   obtenerSugerencias,
   reproducir,
@@ -36,6 +37,7 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
   const [arrastre, setArrastre] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inicioRef = useRef<number | null>(null);
+  const rellenandoRef = useRef(false);
 
   const lista = sugerencias
     ? soloNuevos
@@ -116,6 +118,46 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
 
   const urlPreview = actual ? previews[actual.clave] : null;
 
+  /**
+   * Rellena la cola antes de que se acabe.
+   *
+   * El motor descarta lo ya decidido, así que pedir otra tanda con la misma
+   * semilla devuelve las siguientes y no las mismas. Se dedupe igual al
+   * añadir: lo que sigue sin decidir en la lista actual el servidor no lo
+   * conoce y podría repetirlo.
+   *
+   * El candado va en una referencia y no en estado porque
+   * `react-hooks/set-state-in-effect` prohíbe cambiar estado en el cuerpo del
+   * efecto — y con razón: sería un render de más en cada comprobación.
+   */
+  useEffect(() => {
+    if (!sugerencias || rellenandoRef.current || quedan > 5) return;
+    rellenandoRef.current = true;
+    let vivo = true;
+
+    obtenerSugerencias(
+      preset,
+      40,
+      semilla ? { tipo: semilla.tipo, a: semilla.a, b: semilla.b } : undefined,
+    )
+      .then((r) => {
+        if (!vivo) return;
+        setSugerencias((previas) => {
+          const hay = new Set((previas ?? []).map((s) => s.clave));
+          const nuevas = r.sugerencias.filter((s) => !hay.has(s.clave));
+          return [...(previas ?? []), ...nuevas];
+        });
+      })
+      .catch(() => {})
+      .finally(() => {
+        rellenandoRef.current = false;
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, [sugerencias, quedan, preset, semilla]);
+
   // Suena sola al cambiar de tarjeta. El navegador solo lo permite tras una
   // interacción, y pulsar «Buscar sugerencias» ya cuenta como tal.
   useEffect(() => {
@@ -138,12 +180,27 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
     else a.pause();
   }, [urlPreview]);
 
-  const pasar = useCallback(() => setIndice((i) => i + 1), []);
+  /**
+   * Anota la decisión y avanza.
+   *
+   * La anotación va sin esperar y sin cortar el paso: si la escritura falla, lo
+   * peor que pasa es que la canción vuelva a salir algún día, y eso no
+   * justifica bloquear a quien está deslizando.
+   */
+  const decidir = useCallback(
+    (s: Sugerencia | undefined, decision: "pasada" | "guardada") => {
+      if (s) void anotarDecision(s.artista, s.titulo, decision).catch(() => {});
+      setIndice((i) => i + 1);
+    },
+    [],
+  );
+
+  const pasar = useCallback(() => decidir(actual, "pasada"), [actual, decidir]);
 
   const guardar = useCallback(() => {
     if (actual) setGuardadas((g) => [...g, actual]);
-    setIndice((i) => i + 1);
-  }, [actual]);
+    decidir(actual, "guardada");
+  }, [actual, decidir]);
 
   // Atajos de teclado: repasar cuarenta canciones a golpe de ratón es tedioso,
   // y el gesto natural aquí es izquierda/derecha.

@@ -221,6 +221,25 @@ export const artistStats = sqliteTable("artist_stats", {
 export type ArtistStatsRow = typeof artistStats.$inferSelect;
 
 /**
+ * Lo que ya decidiste en Descubrir, para no volver a proponerlo.
+ *
+ * Se guarda tanto lo pasado como lo guardado: en los dos casos ya diste una
+ * respuesta, y volver a enseñarlo es hacerte revisar lo mismo. Antes no se
+ * guardaba nada y cada búsqueda repetía las mismas cuarenta.
+ */
+export const descubrimientoVisto = sqliteTable("descubrimiento_visto", {
+  clave: text("clave").primaryKey(),
+  /** 'pasada' | 'guardada'. */
+  decision: text("decision").notNull(),
+  /** Se guardan los nombres para poder enseñar el historial sin recalcular. */
+  artista: text("artista"),
+  titulo: text("titulo"),
+  vistaEn: integer("vista_en").notNull(),
+});
+
+export type DescubrimientoVistoRow = typeof descubrimientoVisto.$inferSelect;
+
+/**
  * Fragmento de 30 segundos para escuchar una sugerencia sin salir de la app.
  *
  * Spotify retiró `preview_url`, así que sale de iTunes o de Deezer. Se cachea

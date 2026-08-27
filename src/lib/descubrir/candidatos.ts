@@ -1,6 +1,6 @@
 import "server-only";
 import { sql } from "drizzle-orm";
-import { streams } from "@/db/schema";
+import { descubrimientoVisto, streams } from "@/db/schema";
 import {
   getArtistTopTracks,
   getSimilarArtists,
@@ -44,10 +44,15 @@ export type Descubrimiento = {
 };
 
 /**
- * Lo ya escuchado, para no proponerlo.
+ * Lo ya escuchado y lo ya decidido, para no proponerlo.
  *
  * Se traen las claves distintas, no las filas: son decenas de miles frente a
  * cientos de miles, y el conjunto tiene que caber en memoria.
+ *
+ * Lo visto en Descubrir entra en el mismo saco que lo escuchado. Da igual que
+ * lo pasaras o que lo guardaras: en los dos casos ya diste una respuesta, y
+ * volver a enseñarlo es hacerte revisar lo mismo. Antes no se guardaba nada y
+ * cada búsqueda repetía las mismas cuarenta.
  */
 function conocido(db: Db): {
   canciones: Set<string>;
@@ -59,8 +64,11 @@ function conocido(db: Db): {
   const a = db.all<{ clave: string }>(
     sql`SELECT DISTINCT ${streams.artistKey} AS clave FROM ${streams}`,
   );
+  const v = db.all<{ clave: string }>(
+    sql`SELECT ${descubrimientoVisto.clave} AS clave FROM ${descubrimientoVisto}`,
+  );
   return {
-    canciones: new Set(t.map((r) => r.clave)),
+    canciones: new Set([...t.map((r) => r.clave), ...v.map((r) => r.clave)]),
     artistas: new Set(a.map((r) => r.clave)),
   };
 }

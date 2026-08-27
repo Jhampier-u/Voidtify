@@ -157,6 +157,17 @@ export const SCHEMA_SQL = `
     fetched_at INTEGER NOT NULL
   );
 
+  -- Lo que ya decidiste en Descubrir, para no volver a proponerlo.
+  -- Se guarda tanto lo pasado como lo guardado: en los dos casos ya diste una
+  -- respuesta y volver a enseñarlo es hacerte perder el tiempo.
+  CREATE TABLE IF NOT EXISTS descubrimiento_visto (
+    clave     TEXT PRIMARY KEY,
+    decision  TEXT NOT NULL CHECK (decision IN ('pasada', 'guardada')),
+    artista   TEXT,
+    titulo    TEXT,
+    vista_en  INTEGER NOT NULL
+  );
+
   -- Fragmento de 30 s para escuchar una sugerencia sin salir de la app.
   -- Spotify retiro preview_url, asi que sale de iTunes o de Deezer. Se cachea
   -- el fallo tambien, con url NULL: sin eso, una cancion que no esta en
