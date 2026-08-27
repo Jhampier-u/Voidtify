@@ -22,7 +22,10 @@ import HourClock from "@/components/stats/HourClock";
 import WeekdayBars from "@/components/stats/WeekdayBars";
 import EvolucionChart from "@/components/stats/EvolucionChart";
 import { construirSerie } from "@/lib/stats/serie";
-import CalendarHeatmap from "@/components/stats/CalendarHeatmap";
+import CalendarioEscuchas from "@/components/stats/Calendario";
+import MejoresDias from "@/components/stats/MejoresDias";
+import { construirCalendario } from "@/lib/stats/calendario";
+import { getDestacadoPorDia } from "@/lib/stats/dia-destacado";
 import SkipPanel from "@/components/stats/SkipPanel";
 import ShareCards from "@/components/stats/ShareCards";
 import GenrePanel from "@/components/stats/GenrePanel";
@@ -115,6 +118,32 @@ export default async function Portada({
   // La granularidad la decide la serie: con cuatro semanas hay dos meses, y
   // dos puntos unidos son un segmento recto que no dice nada.
   const serie = construirSerie(dias, meses, range.fromDate, range.toDate);
+
+  // «Historico» no tiene fecha de inicio —fromDate vale 1970-01-01— y dibujarlo
+  // literalmente serian cincuenta y seis tiras vacias antes de la primera
+  // escucha. Con null, el calendario empieza en el primer dia con datos.
+  const calendario = construirCalendario(
+    dias,
+    range.preset === "all" ? null : range.fromDate,
+    range.toDate,
+  );
+
+  // La cancion del dia solo se pide cuando la casilla es lo bastante grande
+  // como para enseñarla: en el historico serian casi tres mil filas para
+  // pintar cuadrados donde no cabe ni el numero del dia.
+  const destacados =
+    calendario?.forma === "meses" && calendario.densidad === "rica"
+      ? await getDestacadoPorDia(db, range)
+      : [];
+
+  const destacadosPorFecha = Object.fromEntries(
+    destacados.map((d) => [d.date, d]),
+  );
+  const caratulasDeDias = destacados.length
+    ? await getCaratulas(db, "cancion", destacados.map((d) => d.trackKey))
+    : {};
+
+  const anioActual = Number(hoy.slice(0, 4));
 
   const minutos = Math.round(totals.msTotal / 60000);
   const vacio = totals.reproducciones === 0;
@@ -290,16 +319,35 @@ export default async function Portada({
           </section>
 
           {/* ---------------- Calendario ---------------- */}
-          <section className="px-8 py-12 hairline-b rise">
-            <CalendarHeatmap buckets={dias} />
-          </section>
+          {calendario && (
+            <section className="px-8 py-12 hairline-b rise">
+              <div className="mb-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+                <h2 className="display-italic text-[clamp(1.8rem,4vw,3rem)]">
+                  Día a día.
+                </h2>
+                <p className="dato-mono text-mute">
+                  {dias.length.toLocaleString("es")} días con música ·{" "}
+                  {totals.reproducciones.toLocaleString("es")} escuchas
+                </p>
+              </div>
 
-          {/* ---------------- Semana ---------------- */}
-          <section className="px-8 py-12 hairline-b">
-            <div className="max-w-2xl">
-              <WeekdayBars buckets={semana} />
-            </div>
-          </section>
+              {/* El calendario y el reparto semanal cuentan lo mismo a dos
+                  escalas, y estaban en secciones distintas ocupando cada una
+                  media pagina. Juntos llenan el ancho y se leen a la vez. */}
+              <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_320px]">
+                <CalendarioEscuchas
+                  calendario={calendario}
+                  destacados={destacadosPorFecha}
+                  caratulas={caratulasDeDias}
+                />
+
+                <aside className="flex flex-col gap-10">
+                  <WeekdayBars buckets={semana} />
+                  <MejoresDias buckets={dias} anioActual={anioActual} />
+                </aside>
+              </div>
+            </section>
+          )}
 
           {/* ---------------- Géneros ---------------- */}
           <section className="px-8 py-12 hairline-b rise">
