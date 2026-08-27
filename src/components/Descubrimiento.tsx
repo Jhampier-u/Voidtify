@@ -293,7 +293,7 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
 
   if (!lista) {
     return (
-      <section className="px-8 py-20 max-w-3xl">
+      <section className="px-5 sm:px-8 py-20 max-w-3xl">
         <p className="font-serif italic text-xl text-cream-dim mb-8">
           Canciones que no has escuchado nunca. Puedes partir de lo que más
           escuchas o pedirle que salga de algo concreto.
@@ -321,7 +321,7 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
 
   if (!actual) {
     return (
-      <section className="px-8 py-20 max-w-2xl">
+      <section className="px-5 sm:px-8 py-20 max-w-2xl">
         <p className="label-mono text-acid mb-4">Se acabaron</p>
         <p className="font-serif italic text-2xl text-cream mb-8">
           Guardaste {guardadas.length}{" "}
@@ -358,7 +358,7 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
   }
 
   return (
-    <section className="px-8 py-12 max-w-3xl">
+    <section className="px-5 sm:px-8 py-12 max-w-3xl">
       <div className="flex items-center justify-between label-mono text-mute mb-10 flex-wrap gap-4">
         <span className="num-tabular">
           {quedan} por ver · {guardadas.length} guardadas

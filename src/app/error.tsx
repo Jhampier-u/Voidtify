@@ -19,7 +19,7 @@ export default function GlobalError({
     error.message.includes("429");
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-8 py-16">
+    <main className="min-h-screen flex items-center justify-center px-5 sm:px-8 py-16">
       <div className="max-w-2xl w-full">
         <p className="label-mono text-blood mb-6">
           {isRateLimit ? "429 — Spotify rate limit" : "Error inesperado"}

@@ -237,12 +237,12 @@ export default async function Portada({
       {/* Solo ocupa sitio cuando la captura no esta recogiendo escuchas. */}
       <AvisoCaptura salud={saludCaptura(estadoCaptura, ahora)} />
 
-      <section className="px-8 py-5 hairline-b">
+      <section className="px-5 sm:px-8 py-5 hairline-b">
         <RangePicker range={range} />
       </section>
 
       {/* ---------------- Cifra protagonista ---------------- */}
-      <section className="px-8 pt-16 pb-12 hairline-b">
+      <section className="px-5 sm:px-8 pt-16 pb-12 hairline-b">
         <div className="grid grid-cols-12 gap-8 items-end">
           <div className="col-span-12 lg:col-span-5 rise">
             <p className="label-mono text-acid mb-6">{range.label}</p>
@@ -364,7 +364,7 @@ export default async function Portada({
       </section>
 
       {vacio ? (
-        <section className="px-8 py-24">
+        <section className="px-5 sm:px-8 py-24">
           <p className="font-serif italic text-2xl text-cream-dim max-w-xl leading-relaxed">
             Todavía no hay escuchas en este rango. La captura guarda lo que
             suene a partir de ahora; cuando importes tu histórico de Spotify
@@ -374,12 +374,12 @@ export default async function Portada({
       ) : (
         <>
           {/* ---------------- Evolución ---------------- */}
-          <section className="px-8 py-12 hairline-b rise">
+          <section className="px-5 sm:px-8 py-12 hairline-b rise">
             <EvolucionChart serie={serie} />
           </section>
 
           {/* ---------------- Rankings ---------------- */}
-          <section className="px-8 pt-12 pb-4 flex justify-end">
+          <section className="px-5 sm:px-8 pt-12 pb-4 flex justify-end">
             <Link
               href="/escucha/contraste"
               className="label-mono text-mute hover:text-acid transition-colors"
@@ -390,7 +390,7 @@ export default async function Portada({
           {/* Artistas manda: columna mas ancha y con fotos. Tres columnas del
               mismo peso hacian que la seccion se leyera como una tabla en vez
               de como un top, y el ojo no sabia por donde entrar. */}
-          <section className="px-8 pb-12 hairline-b grid grid-cols-1 gap-10 lg:grid-cols-[1.5fr_1fr_1fr]">
+          <section className="px-5 sm:px-8 pb-12 hairline-b grid grid-cols-1 gap-10 lg:grid-cols-[1.5fr_1fr_1fr]">
             <TopArtistas
               entradas={artistas}
               imagenes={imagenesArtistas}
@@ -414,7 +414,7 @@ export default async function Portada({
 
           {/* ---------------- Calendario ---------------- */}
           {calendario && (
-            <section className="px-8 py-12 hairline-b rise">
+            <section className="px-5 sm:px-8 py-12 hairline-b rise">
               <div className="mb-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
                 <h2 className="display-italic text-[clamp(1.8rem,4vw,3rem)]">
                   Día a día.
@@ -444,7 +444,7 @@ export default async function Portada({
           )}
 
           {/* ---------------- Géneros ---------------- */}
-          <section className="px-8 py-12 hairline-b rise">
+          <section className="px-5 sm:px-8 py-12 hairline-b rise">
             {mezcla && (
               <div className="mb-12">
                 <p className="label-mono text-mute mb-1">
@@ -479,14 +479,14 @@ export default async function Portada({
           </section>
 
           {/* ---------------- Compartir y exportar ---------------- */}
-          <section className="px-8 py-12 hairline-b rise flex flex-col gap-12">
+          <section className="px-5 sm:px-8 py-12 hairline-b rise flex flex-col gap-12">
             <ShareCards range={range} />
             <PlaylistFromTops rangeParams={params} etiqueta={range.label} />
           </section>
 
           {/* ---------------- Abandono ---------------- */}
           {skips.conDatos > 0 && (
-            <section className="px-8 py-12 hairline-b rise">
+            <section className="px-5 sm:px-8 py-12 hairline-b rise">
               <SkipPanel
           stats={skips}
           artistas={masSaltados}
@@ -498,7 +498,7 @@ export default async function Portada({
       )}
 
       <footer className="hairline-b mt-auto" />
-      <div className="px-8 py-5 flex items-center justify-between label-mono text-mute">
+      <div className="px-5 sm:px-8 py-5 flex items-center justify-between label-mono text-mute">
         <span>PORTADA</span>
         <span>{totals.reproducciones.toLocaleString("es")} REPRODUCCIONES</span>
       </div>

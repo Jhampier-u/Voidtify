@@ -17,7 +17,7 @@ export default function AvisoCaptura({ salud }: { salud: SaludCaptura }) {
   return (
     <Link
       href="/ajustes"
-      className={`hairline-b group flex flex-wrap items-baseline gap-x-3 gap-y-1 px-8 py-3 transition-colors duration-200 ${
+      className={`hairline-b group flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 sm:px-8 py-3 transition-colors duration-200 ${
         fallo ? "bg-blood/10 hover:bg-blood/15" : "bg-tag-amber/10 hover:bg-tag-amber/15"
       }`}
     >

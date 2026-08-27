@@ -148,7 +148,7 @@ export default async function Informes({
     return (
       <main className="min-h-screen flex flex-col">
         <TopBar me={me} active="informes" />
-        <section className="px-8 py-24">
+        <section className="px-5 sm:px-8 py-24">
           <p className="font-serif italic text-xl text-cream-dim">
             Todavía no hay escuchas registradas.
           </p>
@@ -205,7 +205,7 @@ export default async function Informes({
     <main className="min-h-screen flex flex-col">
       <TopBar me={me} active="informes" />
 
-      <section className="px-8 py-5 hairline-b flex items-center gap-6 flex-wrap">
+      <section className="px-5 sm:px-8 py-5 hairline-b flex items-center gap-6 flex-wrap">
         {TIPOS.map((t) => (
           <Link
             key={t.id}
@@ -219,7 +219,7 @@ export default async function Informes({
         ))}
       </section>
 
-      <section className="px-8 py-5 hairline-b overflow-x-auto">
+      <section className="px-5 sm:px-8 py-5 hairline-b overflow-x-auto">
         {/* Se listan todos, sin tope. Cortar a los cuarenta mas recientes
             dejaba 2018 inalcanzable y nada en pantalla lo decia: parecia que
             los datos no llegaban tan atras. */}
@@ -238,7 +238,7 @@ export default async function Informes({
         </div>
       </section>
 
-      <section className="px-8 pt-16 pb-10 hairline-b">
+      <section className="px-5 sm:px-8 pt-16 pb-10 hairline-b">
         <p className="label-mono text-mute mb-5">
           frente a {etiqueta(inf.periodoAnterior, tipo)}
         </p>
@@ -267,7 +267,7 @@ export default async function Informes({
         </dl>
       </section>
 
-      <section className="px-8 py-14 grid gap-14 lg:grid-cols-2">
+      <section className="px-5 sm:px-8 py-14 grid gap-14 lg:grid-cols-2">
         <Ranking
           titulo="Artistas"
           filas={inf.artistas.filas}
@@ -287,13 +287,13 @@ export default async function Informes({
       {/* Comparar dos top 15 solo puede hablar de esos quince: «entra» no
           significa que nunca se hubiera escuchado. Decirlo evita leer más de lo
           que el dato sostiene. */}
-      <p className="px-8 pb-12 label-mono text-mute max-w-2xl leading-relaxed">
+      <p className="px-5 sm:px-8 pb-12 label-mono text-mute max-w-2xl leading-relaxed">
         «Entra» y «sale» se refieren al top 15 de cada periodo, no a tu
         historial completo.
       </p>
 
       <footer className="hairline-b mt-auto" />
-      <div className="px-8 py-5 flex items-center justify-between label-mono text-mute">
+      <div className="px-5 sm:px-8 py-5 flex items-center justify-between label-mono text-mute">
         <span>INFORMES</span>
         <span>{periodos.length.toLocaleString("es")} PERIODOS CON DATOS</span>
       </div>

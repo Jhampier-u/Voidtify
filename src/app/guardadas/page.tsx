@@ -65,7 +65,7 @@ export default async function LibraryPage({
 
       <Header total={liked.total} />
 
-      <section className="px-8 py-10">
+      <section className="px-5 sm:px-8 py-10">
         <div className="hairline-b pb-3 mb-2 grid grid-cols-[60px_56px_1fr_120px] md:grid-cols-[60px_56px_1fr_240px_80px_120px] gap-3 md:gap-6 label-mono text-mute">
           <span>№</span>
           <span></span>
@@ -101,7 +101,7 @@ export default async function LibraryPage({
       </section>
 
       <footer className="hairline-b mt-auto" />
-      <div className="px-8 py-5 flex items-center justify-between label-mono text-mute">
+      <div className="px-5 sm:px-8 py-5 flex items-center justify-between label-mono text-mute">
         <span>BIBLIOTECA · LIKED SONGS</span>
         <span>
           {liked.total.toLocaleString("es")} EN TOTAL · PÁGINA {page} / {totalPages}
@@ -115,7 +115,7 @@ export default async function LibraryPage({
 
 function Header({ total }: { total: number }) {
   return (
-    <section className="px-8 py-16 lg:py-20 hairline-b">
+    <section className="px-5 sm:px-8 py-16 lg:py-20 hairline-b">
       <div className="grid grid-cols-12 gap-6 items-end">
         <div className="col-span-12 lg:col-span-8 rise">
           <p className="label-mono text-acid mb-6">

@@ -33,7 +33,7 @@ export default function CaptureHealth(props: CaptureHealthProps) {
   };
 
   return (
-    <section className="hairline-b px-8 py-10">
+    <section className="hairline-b px-5 sm:px-8 py-10">
       <p className="label-mono text-mute mb-6">Captura en segundo plano</p>
 
       {salud.nivel !== "ok" && (

@@ -199,3 +199,20 @@ body::before {
     animation: none;
   }
 }
+
+@layer utilities {
+  /**
+   * Carril que se desplaza sin enseñar la barra.
+   *
+   * La barra del sistema mide entre ocho y quince píxeles y en un carril de
+   * navegación de treinta y dos de alto se come media fila. El desplazamiento
+   * se descubre arrastrando, que es el gesto natural en un móvil.
+   */
+  .sin-barra {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .sin-barra::-webkit-scrollbar {
+    display: none;
+  }
+}

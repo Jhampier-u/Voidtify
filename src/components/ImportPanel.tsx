@@ -56,7 +56,7 @@ export default function ImportPanel({
   const conError = hechos.filter((r) => r.error);
 
   return (
-    <section className="hairline-b px-8 py-10">
+    <section className="hairline-b px-5 sm:px-8 py-10">
       <p className="label-mono text-mute mb-6">Importar historial</p>
 
       {archivos.length === 0 ? (

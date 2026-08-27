@@ -46,7 +46,7 @@ export default async function AjustesPage() {
     <main className="min-h-screen flex flex-col">
       <TopBar me={me} active="ajustes" />
 
-      <section className="px-8 py-16 hairline-b">
+      <section className="px-5 sm:px-8 py-16 hairline-b">
         <p className="label-mono text-acid mb-6">Ajustes</p>
         <h1 className="display-italic text-[clamp(3rem,8vw,7rem)] leading-[0.9]">
           El taller.
@@ -64,7 +64,7 @@ export default async function AjustesPage() {
 
       <ImportPanel archivos={archivos} />
 
-      <section className="px-8 py-10">
+      <section className="px-5 sm:px-8 py-10">
         <p className="label-mono text-mute mb-4">Zona horaria</p>
         <p className="font-serif italic text-lg text-cream-dim">
           STATS_TZ ={" "}
@@ -75,7 +75,7 @@ export default async function AjustesPage() {
       </section>
 
       <footer className="hairline-b mt-auto" />
-      <div className="px-8 py-5 flex items-center justify-between label-mono text-mute">
+      <div className="px-5 sm:px-8 py-5 flex items-center justify-between label-mono text-mute">
         <span>TALLER</span>
       </div>
     </main>

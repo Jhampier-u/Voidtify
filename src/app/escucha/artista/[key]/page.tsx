@@ -74,14 +74,14 @@ export default async function FichaArtista({
     <main className="min-h-screen flex flex-col">
       <TopBar me={me} active="portada" />
 
-      <section className="px-8 py-5 hairline-b flex items-center justify-between gap-4 flex-wrap">
+      <section className="px-5 sm:px-8 py-5 hairline-b flex items-center justify-between gap-4 flex-wrap">
         <RangePicker range={range} base={`/escucha/artista/${key}`} />
         <Link href="/" className="label-mono text-mute hover:text-acid transition-colors">
           ← Portada
         </Link>
       </section>
 
-      <section className="relative overflow-hidden px-8 pt-16 pb-12 hairline-b">
+      <section className="relative overflow-hidden px-5 sm:px-8 pt-16 pb-12 hairline-b">
         {/* Halo del color de la marca detras de la foto: da profundidad sin
             recurrir a una sombra, que sobre un fondo casi negro no se ve. */}
         <span
@@ -175,7 +175,7 @@ export default async function FichaArtista({
         </dl>
       </section>
 
-      <section className="px-8 py-12">
+      <section className="px-5 sm:px-8 py-12">
         <p className="label-mono text-mute mb-4">Lo que más le escuchas</p>
         <ol className="max-w-2xl">
           {ficha.topTracks.map((t, i) => (
@@ -223,7 +223,7 @@ export default async function FichaArtista({
       </section>
 
       <footer className="hairline-b mt-auto" />
-      <div className="px-8 py-5 flex items-center justify-between label-mono text-mute">
+      <div className="px-5 sm:px-8 py-5 flex items-center justify-between label-mono text-mute">
         <span>FICHA</span>
         <span>{ficha.plays.toLocaleString("es")} REPRODUCCIONES</span>
       </div>

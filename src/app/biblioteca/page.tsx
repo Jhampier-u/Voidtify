@@ -73,7 +73,7 @@ export default async function Home({
 function LoginScreen() {
   return (
     <main className="min-h-screen flex flex-col">
-      <header className="px-8 py-6 flex items-center justify-between hairline-b">
+      <header className="px-5 sm:px-8 py-6 flex items-center justify-between hairline-b">
         <span className="label-mono text-cream">
           LEDGER <span className="text-mute">·</span>{" "}
           <span className="text-mute">001</span>
@@ -81,7 +81,7 @@ function LoginScreen() {
         <span className="label-mono text-mute">EST. MMXXVI</span>
       </header>
 
-      <section className="flex-1 grid lg:grid-cols-12 gap-12 px-8 py-16 lg:py-24">
+      <section className="flex-1 grid lg:grid-cols-12 gap-12 px-5 sm:px-8 py-16 lg:py-24">
         <div className="lg:col-span-7 lg:col-start-2 flex flex-col justify-center rise">
           <p className="label-mono text-acid mb-8">
             № 01 — Una nueva forma de mirar tu música
@@ -128,7 +128,7 @@ function LoginScreen() {
       </section>
 
       <footer className="hairline-b mt-auto" />
-      <div className="px-8 py-4 flex items-center justify-between label-mono text-mute">
+      <div className="px-5 sm:px-8 py-4 flex items-center justify-between label-mono text-mute">
         <span>① / ① — INTRO</span>
         <span>↓ DESPLAZA PARA NADA</span>
       </div>
@@ -213,7 +213,7 @@ function Library({
 
       {featured && <Featured playlist={featured} />}
 
-      <section className="px-8 pt-16 pb-24">
+      <section className="px-5 sm:px-8 pt-16 pb-24">
         <div className="hairline-b pb-4 mb-10">
           <div className="flex items-baseline justify-between mb-5 flex-wrap gap-y-3">
             <h2 className="label-mono text-acid">
@@ -297,7 +297,7 @@ function Library({
       </section>
 
       <footer className="hairline-b" />
-      <div className="px-8 py-5 flex items-center justify-between label-mono text-mute">
+      <div className="px-5 sm:px-8 py-5 flex items-center justify-between label-mono text-mute">
         <span>FIN DEL ÍNDICE</span>
         <span>{pad(filtradas.length)} EN ESTA VISTA · LEDGER № 001</span>
       </div>
@@ -343,7 +343,7 @@ function Featured({ playlist }: { playlist: SpotifyPlaylist }) {
   const cover = playlist.images?.[0]?.url;
   const tracks = playlistTrackTotal(playlist);
   return (
-    <section className="px-8 py-14 hairline-b bg-gradient-to-br from-ink via-ink to-ink-2/40">
+    <section className="px-5 sm:px-8 py-14 hairline-b bg-gradient-to-br from-ink via-ink to-ink-2/40">
       <div className="grid grid-cols-12 gap-8 items-center">
         <Link
           href={`/playlist/${playlist.id}`}
@@ -555,7 +555,7 @@ function FilterChips({
 
 function EditorialHeader({ total }: { total: number }) {
   return (
-    <section className="px-8 py-16 lg:py-24 hairline-b">
+    <section className="px-5 sm:px-8 py-16 lg:py-24 hairline-b">
       <div className="grid grid-cols-12 gap-6 items-end">
         <div className="col-span-12 lg:col-span-8 rise">
           <p className="label-mono text-acid mb-6">
@@ -607,7 +607,7 @@ function Stats({
   ];
 
   return (
-    <section className="px-8 pt-12 hairline-b pb-12">
+    <section className="px-5 sm:px-8 pt-12 hairline-b pb-12">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
         {cells.map((c, i) => (
           <div

@@ -86,7 +86,7 @@ export default async function PlaylistPage({
     <main className="min-h-screen flex flex-col">
       <TopBar me={me} />
 
-      <div className="px-8 pt-6">
+      <div className="px-5 sm:px-8 pt-6">
         <Link
           href="/"
           className="label-mono text-mute hover:text-acid transition-colors"
@@ -106,7 +106,7 @@ export default async function PlaylistPage({
         explicitCount={explicitCount}
       />
 
-      <section className="px-8 pt-12 pb-32">
+      <section className="px-5 sm:px-8 pt-12 pb-32">
         {tracks.length === 0 ? (
           <EmptyState tracksError={tracksError} />
         ) : (
@@ -135,7 +135,7 @@ export default async function PlaylistPage({
       </section>
 
       <footer className="hairline-b" />
-      <div className="px-8 py-5 flex items-center justify-between label-mono text-mute">
+      <div className="px-5 sm:px-8 py-5 flex items-center justify-between label-mono text-mute">
         <span>FIN DE LA LISTA</span>
         <span>
           {tracks.length} CANCIONES · {formatLongDuration(totalMs)}
@@ -197,7 +197,7 @@ function DetailHeader({
   const cover = playlist.images?.[0]?.url;
 
   return (
-    <section className="px-8 py-12 hairline-b">
+    <section className="px-5 sm:px-8 py-12 hairline-b">
       <div className="grid grid-cols-12 gap-8 items-end">
         <div className="col-span-12 md:col-span-4 lg:col-span-3 rise">
           <div className="aspect-square relative bg-ink-2 ring-1 ring-rule overflow-hidden">

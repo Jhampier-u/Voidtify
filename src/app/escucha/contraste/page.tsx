@@ -134,7 +134,7 @@ function Bloque({ c, entidad }: { c: Contraste; entidad: Entidad }) {
   );
 
   return (
-    <section className="px-8 py-12 hairline-b">
+    <section className="px-5 sm:px-8 py-12 hairline-b">
       <div className="flex items-baseline justify-between gap-4 mb-8 flex-wrap">
         <h2 className="display-italic text-3xl">{c.label}</h2>
         <p className="label-mono text-mute">
@@ -214,7 +214,7 @@ export default async function Contraste({
     <main className="min-h-screen flex flex-col">
       <TopBar me={me} active="portada" />
 
-      <section className="px-8 py-5 hairline-b flex items-center justify-between gap-4 flex-wrap">
+      <section className="px-5 sm:px-8 py-5 hairline-b flex items-center justify-between gap-4 flex-wrap">
         <nav className="flex gap-5">
           <Link
             href="/escucha/contraste"
@@ -238,7 +238,7 @@ export default async function Contraste({
         </Link>
       </section>
 
-      <section className="px-8 pt-16 pb-12 hairline-b">
+      <section className="px-5 sm:px-8 pt-16 pb-12 hairline-b">
         <p className="label-mono text-acid mb-6">Contraste</p>
         <h1
           className="display-italic text-[clamp(2.4rem,8vw,6rem)] leading-[0.9]"
@@ -258,7 +258,7 @@ export default async function Contraste({
       </section>
 
       {evolucion.tomas.length > 1 && (
-        <section className="px-8 py-12 hairline-b">
+        <section className="px-5 sm:px-8 py-12 hairline-b">
           <div className="mb-6 flex items-baseline justify-between gap-4 flex-wrap">
             <h2 className="display-italic text-3xl">Cómo se ha movido</h2>
             <p className="dato-mono text-mute">
@@ -279,7 +279,7 @@ export default async function Contraste({
       )}
 
       {disponibles.length === 0 ? (
-        <section className="px-8 py-24">
+        <section className="px-5 sm:px-8 py-24">
           <p className="font-serif italic text-xl text-cream-dim max-w-lg">
             Todavía no hay ninguna toma guardada. El cron guarda una al día
             junto con la captura de escuchas.
@@ -292,7 +292,7 @@ export default async function Contraste({
       )}
 
       <footer className="hairline-b mt-auto" />
-      <div className="px-8 py-5 flex items-center justify-between label-mono text-mute">
+      <div className="px-5 sm:px-8 py-5 flex items-center justify-between label-mono text-mute">
         <span>CONTRASTE</span>
         <span>
           {tomas} {tomas === 1 ? "TOMA GUARDADA" : "TOMAS GUARDADAS"}

@@ -24,7 +24,7 @@ export default async function TagsPage() {
       <TagsManager initial={tags} />
 
       <footer className="hairline-b mt-auto" />
-      <div className="px-8 py-5 flex items-center justify-between label-mono text-mute">
+      <div className="px-5 sm:px-8 py-5 flex items-center justify-between label-mono text-mute">
         <span>VOLUMEN 05 · TAGS</span>
         <span>
           {tags.length} TAGS · {totalApplications.toLocaleString("es")}{" "}
@@ -43,7 +43,7 @@ function Header({
   totalApplications: number;
 }) {
   return (
-    <section className="px-8 py-16 lg:py-20 hairline-b">
+    <section className="px-5 sm:px-8 py-16 lg:py-20 hairline-b">
       <div className="grid grid-cols-12 gap-6 items-end">
         <div className="col-span-12 lg:col-span-8 rise">
           <p className="label-mono text-acid mb-6">

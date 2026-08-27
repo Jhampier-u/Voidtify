@@ -111,11 +111,11 @@ export default async function Historial({
     <main className="min-h-screen flex flex-col">
       <TopBar me={me} active="historial" />
 
-      <section className="px-8 py-5 hairline-b">
+      <section className="px-5 sm:px-8 py-5 hairline-b">
         <RangePicker range={range} base="/historial" />
       </section>
 
-      <section className="px-8 py-8 hairline-b flex items-end justify-between gap-6 flex-wrap">
+      <section className="px-5 sm:px-8 py-8 hairline-b flex items-end justify-between gap-6 flex-wrap">
         <form method="get" className="flex items-end gap-3">
           {sp.preset && <input type="hidden" name="preset" value={sp.preset} />}
           {sp.desde && <input type="hidden" name="desde" value={sp.desde} />}
@@ -142,13 +142,13 @@ export default async function Historial({
       </section>
 
       {rows.length === 0 ? (
-        <section className="px-8 py-24">
+        <section className="px-5 sm:px-8 py-24">
           <p className="font-serif italic text-xl text-cream-dim max-w-lg">
             Nada que mostrar con este filtro.
           </p>
         </section>
       ) : (
-        <section className="px-8 py-8">
+        <section className="px-5 sm:px-8 py-8">
           <ol>
             {conDia.map(({ fila: r, nuevoDia }) => {
               const total = totalesDia[r.localDate];
@@ -245,7 +245,7 @@ export default async function Historial({
       )}
 
       <footer className="hairline-b mt-auto" />
-      <div className="px-8 py-5 flex items-center justify-between label-mono text-mute">
+      <div className="px-5 sm:px-8 py-5 flex items-center justify-between label-mono text-mute">
         <span>HISTORIAL</span>
         <span>{total.toLocaleString("es")} ESCUCHAS</span>
       </div>

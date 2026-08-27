@@ -83,7 +83,7 @@ export default function TagsManager({ initial }: { initial: Tag[] }) {
   };
 
   return (
-    <section className="px-8 py-12">
+    <section className="px-5 sm:px-8 py-12">
       <div className="hairline-b pb-4 mb-8 flex items-center justify-between flex-wrap gap-3">
         <h2 className="label-mono text-acid">
           Catálogo <span className="text-mute">/ {tags.length}</span>

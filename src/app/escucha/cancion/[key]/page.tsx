@@ -57,7 +57,7 @@ export default async function FichaCancion({
     <main className="min-h-screen flex flex-col">
       <TopBar me={me} active="portada" />
 
-      <section className="px-8 py-5 hairline-b flex items-center justify-between gap-4 flex-wrap">
+      <section className="px-5 sm:px-8 py-5 hairline-b flex items-center justify-between gap-4 flex-wrap">
         <RangePicker range={range} base={`/escucha/cancion/${key}`} />
         <Link href="/" className="label-mono text-mute hover:text-acid transition-colors">
           ← Portada
@@ -85,7 +85,7 @@ export default async function FichaCancion({
         ]}
       />
 
-      <section className="px-8 py-12 rise">
+      <section className="px-5 sm:px-8 py-12 rise">
         <EvolucionChart
           serie={construirSerie([], ficha.porMes, range.fromDate, range.toDate)}
           titulo="Cuándo la escuchaste"
@@ -93,7 +93,7 @@ export default async function FichaCancion({
       </section>
 
       <footer className="hairline-b mt-auto" />
-      <div className="px-8 py-5 flex items-center justify-between label-mono text-mute">
+      <div className="px-5 sm:px-8 py-5 flex items-center justify-between label-mono text-mute">
         <span>CANCIÓN</span>
         <span>{ficha.plays.toLocaleString("es")} REPRODUCCIONES</span>
       </div>

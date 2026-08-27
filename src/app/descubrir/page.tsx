@@ -29,7 +29,7 @@ export default async function Descubrir({
     <main className="min-h-screen flex flex-col">
       <TopBar me={me} active="descubrir" />
 
-      <section className="px-8 py-5 hairline-b">
+      <section className="px-5 sm:px-8 py-5 hairline-b">
         <RangePicker range={range} base="/descubrir" />
       </section>
 
@@ -38,7 +38,7 @@ export default async function Descubrir({
       <Descubrimiento preset={sp.preset} />
 
       <footer className="hairline-b mt-auto" />
-      <div className="px-8 py-5 flex items-center justify-between label-mono text-mute">
+      <div className="px-5 sm:px-8 py-5 flex items-center justify-between label-mono text-mute">
         <span>DESCUBRIR</span>
         <span>MOTOR LAST.FM</span>
       </div>

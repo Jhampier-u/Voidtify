@@ -33,7 +33,7 @@ export default function EntityHeader({
 
   return (
     <>
-      <section className="relative overflow-hidden px-8 pt-16 pb-12 hairline-b">
+      <section className="relative overflow-hidden px-5 sm:px-8 pt-16 pb-12 hairline-b">
         {/* Halo detras de la caratula: da profundidad sin recurrir a una
             sombra, que sobre un fondo casi negro no se ve. */}
         <span

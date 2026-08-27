@@ -20,7 +20,7 @@ export default function PanelCaches({
   copias: EstadoCopias;
 }) {
   return (
-    <section className="px-8 py-10 hairline-b">
+    <section className="px-5 sm:px-8 py-10 hairline-b">
       <p className="label-mono text-mute mb-2">Trabajo de fondo</p>
       <p className="font-serif italic text-cream-dim mb-8 max-w-2xl">
         Se rellenan solas con cada captura, a lotes pequeños para no agotar el
