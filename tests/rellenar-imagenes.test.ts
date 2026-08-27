@@ -144,7 +144,7 @@ describe("rellenarImagenesEnLote", () => {
     const buscar = vi.fn().mockResolvedValue([art("abc", "Duster")]);
     const r = await rellenarImagenesEnLote(db, buscar, 10, AHORA);
 
-    expect(r).toEqual({ pedidos: 1, conFoto: 1 });
+    expect(r).toEqual({ pedidos: 1, conFoto: 1, pausado: false });
     const filas = await db.select().from(artistImagen);
     expect(filas[0]).toMatchObject({ spotifyId: "abc", url: "u" });
   });

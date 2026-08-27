@@ -6,8 +6,15 @@ import {
   mejorCaratula,
   rellenarCaratulasEnLote,
   MAX_EDAD_MS,
+  CLAVE_CUOTA,
   type PistaSpotify,
 } from "@/lib/capture/rellenar-caratulas";
+import {
+  pausar,
+  quedanSegundos,
+  type Pausas,
+} from "@/lib/capture/pausa-cuota";
+import { SpotifyApiError } from "@/lib/spotify-core";
 import { caratula } from "@/db/schema";
 import { albumKey, trackKey } from "@/lib/stats/normalize";
 import type { Db } from "@/lib/stats/shared";
@@ -176,6 +183,86 @@ describe("rellenarCaratulasEnLote", () => {
     const pedir = vi.fn();
     const r = await rellenarCaratulasEnLote(db, "cancion", pedir, 50, AHORA);
     expect(pedir).not.toHaveBeenCalled();
-    expect(r).toEqual({ pedidos: 0, conCaratula: 0, fallos: 0 });
+    expect(r).toEqual({ pedidos: 0, conCaratula: 0, fallos: 0, pausado: false });
+  });
+
+  describe("ante la cuota de /tracks", () => {
+    const cuota = () => new SpotifyApiError("Spotify 429", 429, 623);
+
+    // El fallo que dejo las caratulas un dia sin avanzar: Spotify decia
+    // «espera 623 segundos» y la pista siguiente salia sin pausa. Quince
+    // rechazos por lote, cada veinte minutos, indefinidamente.
+    it("corta el lote en la primera y no pide las demas", async () => {
+      seedStreams(sqlite, [
+        stream({ trackName: "A" }),
+        stream({ trackName: "B" }),
+        stream({ trackName: "C" }),
+      ]);
+      const pedir = vi.fn().mockRejectedValue(cuota());
+
+      const r = await rellenarCaratulasEnLote(db, "cancion", pedir, 50, AHORA, {});
+      expect(pedir).toHaveBeenCalledTimes(1);
+      expect(r.pausado).toBe(true);
+    });
+
+    it("anota la espera que pide Spotify", async () => {
+      seedStreams(sqlite, [stream({ trackName: "A" })]);
+      const pausas: Pausas = {};
+
+      await rellenarCaratulasEnLote(
+        db,
+        "cancion",
+        vi.fn().mockRejectedValue(cuota()),
+        50,
+        AHORA,
+        pausas,
+      );
+      expect(quedanSegundos(pausas, CLAVE_CUOTA, AHORA)).toBe(623);
+    });
+
+    it("no pide nada mientras dura la espera", async () => {
+      seedStreams(sqlite, [stream({ trackName: "A" })]);
+      const pausas: Pausas = {};
+      pausar(pausas, CLAVE_CUOTA, 600, AHORA);
+      const pedir = vi.fn();
+
+      const r = await rellenarCaratulasEnLote(
+        db, "cancion", pedir, 50, AHORA, pausas,
+      );
+      expect(pedir).not.toHaveBeenCalled();
+      expect(r).toEqual({ pedidos: 0, conCaratula: 0, fallos: 0, pausado: true });
+    });
+
+    it("vuelve a pedir cuando la espera termina", async () => {
+      seedStreams(sqlite, [stream({ trackName: "A" })]);
+      const pausas: Pausas = {};
+      pausar(pausas, CLAVE_CUOTA, 600, AHORA);
+      const pedir = vi.fn().mockResolvedValue(pista("spotify:track:a"));
+
+      await rellenarCaratulasEnLote(
+        db, "cancion", pedir, 50, AHORA + 601_000, pausas,
+      );
+      expect(pedir).toHaveBeenCalledTimes(1);
+    });
+
+    // Un 403 es un permiso retirado: esperar no lo arregla y parar el relleno
+    // por el escondería el problema real detrás de una pausa silenciosa.
+    it("un 403 no pausa: se cuenta como fallo y el lote sigue", async () => {
+      seedStreams(sqlite, [
+        stream({ trackName: "A" }),
+        stream({ trackName: "B" }),
+      ]);
+      const pausas: Pausas = {};
+      const pedir = vi
+        .fn()
+        .mockRejectedValue(new SpotifyApiError("Spotify 403", 403));
+
+      const r = await rellenarCaratulasEnLote(
+        db, "cancion", pedir, 50, AHORA, pausas,
+      );
+      expect(pedir).toHaveBeenCalledTimes(2);
+      expect(r).toMatchObject({ fallos: 2, pausado: false });
+      expect(quedanSegundos(pausas, CLAVE_CUOTA, AHORA)).toBe(0);
+    });
   });
 });

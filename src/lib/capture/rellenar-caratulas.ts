@@ -1,6 +1,13 @@
 import { sql } from "drizzle-orm";
 import { caratula, streams } from "@/db/schema";
 import { contadas, type Db } from "@/lib/stats/shared";
+import {
+  enPausa,
+  esperaDe,
+  pausar,
+  quedanSegundos,
+  type Pausas,
+} from "./pausa-cuota";
 
 export type TipoCaratula = "cancion" | "album";
 
@@ -107,13 +114,29 @@ export async function guardarCaratula(
 /** Pide una pista por su id. Se inyecta para poder probar sin red. */
 export type PedirPista = (id: string) => Promise<PistaSpotify | null>;
 
+/** Clave de cuota: los dos tipos de carátula salen del mismo endpoint. */
+export const CLAVE_CUOTA = "pistas";
+
 export async function rellenarCaratulasEnLote(
   db: Db,
   tipo: TipoCaratula,
   pedir: PedirPista,
   limite: number = POR_CAPTURA,
   ahoraMs: number = Date.now(),
-): Promise<{ pedidos: number; conCaratula: number; fallos: number }> {
+  pausas: Pausas = {},
+): Promise<{
+  pedidos: number;
+  conCaratula: number;
+  fallos: number;
+  pausado: boolean;
+}> {
+  // `/tracks/{id}` tiene su propia cuota, con esperas de diez minutos y de
+  // horas. Preguntar dentro de la espera no adelanta nada y suma peticiones
+  // rechazadas que solo la alargan.
+  if (enPausa(pausas, CLAVE_CUOTA, ahoraMs)) {
+    return { pedidos: 0, conCaratula: 0, fallos: 0, pausado: true };
+  }
+
   const pendientes = getPendientes(db, tipo, limite, ahoraMs);
 
   let conCaratula = 0;
@@ -126,6 +149,19 @@ export async function rellenarCaratulasEnLote(
     try {
       pista = await pedir(id);
     } catch (e) {
+      // Una cuota corta el lote entero. Antes se hacia `continue`, asi que
+      // Spotify decia «espera 623 segundos» y la pista siguiente salia sin
+      // pausa: quince rechazos por lote, treinta por captura, cada veinte
+      // minutos y para siempre. Las caratulas llevaban un dia sin avanzar.
+      const espera = esperaDe(e);
+      if (espera !== null) {
+        pausar(pausas, CLAVE_CUOTA, espera, ahoraMs);
+        console.warn(
+          `[caratulas] cuota agotada en ${tipo}: se para ${quedanSegundos(pausas, CLAVE_CUOTA, ahoraMs)} s`,
+        );
+        return { pedidos: pendientes.length, conCaratula, fallos, pausado: true };
+      }
+
       // Un fallo de red no se anota como «no existe»: eso dejaria el hueco
       // durante dos meses por un corte de un segundo. Pero SI se cuenta y se
       // registra: la version anterior hacia `continue` en silencio, y cuando el
@@ -144,5 +180,5 @@ export async function rellenarCaratulasEnLote(
     if (url) conCaratula += 1;
   }
 
-  return { pedidos: pendientes.length, conCaratula, fallos };
+  return { pedidos: pendientes.length, conCaratula, fallos, pausado: false };
 }

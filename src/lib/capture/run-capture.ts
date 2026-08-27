@@ -19,6 +19,7 @@ import {
   rellenarCaratulasEnLote,
   type PistaSpotify,
 } from "./rellenar-caratulas";
+import { pausasDelProceso } from "./pausa-cuota";
 
 const FILA = 1;
 const LIMITE = 50;
@@ -156,21 +157,41 @@ export async function runCapture(manual = false): Promise<CaptureResult> {
 
     // Las fotos de artista, por el mismo camino y con el mismo criterio: los
     // mas escuchados primero, porque son los que salen en pantalla.
+    // Las pausas se comparten entre capturas: si Spotify pidio esperar diez
+    // minutos, la ejecucion de dentro de veinte no vuelve a preguntar.
+    const pausas = pausasDelProceso();
+
     let imagenes = 0;
     try {
-      imagenes = (await rellenarImagenesEnLote(db, buscarArtista)).conFoto;
+      imagenes = (await rellenarImagenesEnLote(
+        db,
+        buscarArtista,
+        undefined,
+        undefined,
+        pausas,
+      )).conFoto;
     } catch (e) {
       console.warn("[captura] no se pudieron rellenar imagenes", e);
     }
 
-    // Caratulas de cancion y album. Salen las dos del album de la pista, y
-    // Spotify admite cincuenta ids por llamada: son dos peticiones en total,
-    // mucho mas barato que las fotos de artista.
+    // Caratulas de cancion y album. Las dos salen del album de la pista, una
+    // peticion por pista: la forma en lote, `/tracks?ids=`, devuelve 403 para
+    // esta aplicacion mientras `/tracks/{id}` sigue dando 200.
     let caratulas = 0;
     try {
       for (const tipo of ["cancion", "album"] as const) {
-        caratulas += (await rellenarCaratulasEnLote(db, tipo, pedirPista))
-          .conCaratula;
+        const r = await rellenarCaratulasEnLote(
+          db,
+          tipo,
+          pedirPista,
+          undefined,
+          undefined,
+          pausas,
+        );
+        caratulas += r.conCaratula;
+        // El segundo tipo usa el mismo endpoint: si el primero agoto la cuota,
+        // pedirlo seria repetir el error que se acaba de aprender.
+        if (r.pausado) break;
       }
     } catch (e) {
       console.warn("[captura] no se pudieron rellenar caratulas", e);

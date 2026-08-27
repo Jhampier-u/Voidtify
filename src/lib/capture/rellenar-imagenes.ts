@@ -2,6 +2,13 @@ import { sql } from "drizzle-orm";
 import { artistImagen, streams } from "@/db/schema";
 import { artistKey } from "@/lib/stats/normalize";
 import { contadas, type Db } from "@/lib/stats/shared";
+import {
+  enPausa,
+  esperaDe,
+  pausar,
+  quedanSegundos,
+  type Pausas,
+} from "./pausa-cuota";
 
 export type ArtistaSinImagen = { key: string; name: string };
 
@@ -126,12 +133,20 @@ export async function guardarImagen(
 /** Busca un artista por nombre. Se inyecta para poder probar sin red. */
 export type BuscadorArtista = (nombre: string) => Promise<ArtistaSpotify[]>;
 
+/** Clave de cuota: las fotos salen de `/search`, que tiene la suya. */
+export const CLAVE_CUOTA = "busqueda";
+
 export async function rellenarImagenesEnLote(
   db: Db,
   buscar: BuscadorArtista,
   limite: number = POR_CAPTURA,
   ahoraMs: number = Date.now(),
-): Promise<{ pedidos: number; conFoto: number }> {
+  pausas: Pausas = {},
+): Promise<{ pedidos: number; conFoto: number; pausado: boolean }> {
+  if (enPausa(pausas, CLAVE_CUOTA, ahoraMs)) {
+    return { pedidos: 0, conFoto: 0, pausado: true };
+  }
+
   const pendientes = getArtistasSinImagen(db, limite, ahoraMs);
 
   let conFoto = 0;
@@ -139,7 +154,18 @@ export async function rellenarImagenesEnLote(
     let elegido: ArtistaSpotify | null = null;
     try {
       elegido = elegirArtista(await buscar(a.name), a.key);
-    } catch {
+    } catch (e) {
+      // Una cuota corta el lote: insistir solo suma rechazos, y cada rechazo
+      // cuenta contra la misma ventana que se esta esperando.
+      const espera = esperaDe(e);
+      if (espera !== null) {
+        pausar(pausas, CLAVE_CUOTA, espera, ahoraMs);
+        console.warn(
+          `[imagenes] cuota agotada: se para ${quedanSegundos(pausas, CLAVE_CUOTA, ahoraMs)} s`,
+        );
+        return { pedidos: pendientes.length, conFoto, pausado: true };
+      }
+
       // Un fallo de red no se guarda como "no existe": eso dejaria al artista
       // sin foto durante dos meses por un corte de un segundo.
       continue;
@@ -157,5 +183,5 @@ export async function rellenarImagenesEnLote(
     if (elegido) conFoto += 1;
   }
 
-  return { pedidos: pendientes.length, conFoto };
+  return { pedidos: pendientes.length, conFoto, pausado: false };
 }
