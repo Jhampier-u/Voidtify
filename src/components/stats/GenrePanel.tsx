@@ -30,6 +30,9 @@ function compacta(n: number): string {
  *
  * Y cada género se abre: era una lista que no llevaba a ninguna parte.
  */
+/** Marca «se pidió y no se pudo»: la lista se abre, el ritmo no se enseña. */
+const SIN_RITMO: RitmoDeGenero = { franjas: [], total: 0 };
+
 export default function GenrePanel({
   generos,
   epocas,
@@ -91,7 +94,12 @@ export default function GenrePanel({
       rangeParams.preset,
       rangeParams.desde,
       rangeParams.hasta,
-    ).then((v) => setRitmos((r) => ({ ...r, [nombre]: v })));
+    )
+      .then((v) => setRitmos((r) => ({ ...r, [nombre]: v })))
+      // Si el ritmo falla, el género se abre igual. Sin esto, un rechazo sin
+      // recoger sube al límite de error y se lleva por delante la lista
+      // entera: los artistas ya estaban en memoria y no dependían de nada.
+      .catch(() => setRitmos((r) => ({ ...r, [nombre]: SIN_RITMO })));
   };
 
   const rellenar = () => {
