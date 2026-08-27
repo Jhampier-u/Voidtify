@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { duracion } from "@/lib/formato";
 import Miniatura from "./Miniatura";
+import DestacadoTop from "./DestacadoTop";
 
 type Entrada = { key: string; name: string; plays: number; ms: number };
 
@@ -30,7 +31,7 @@ export default function TopArtistas({
 
   if (entradas.length === 0) {
     return (
-      <section>
+      <section className="@container">
         <p className="label-mono text-mute mb-4">Artistas</p>
         <p className="font-serif italic text-cream-dim">{vacio}</p>
       </section>
@@ -42,10 +43,16 @@ export default function TopArtistas({
   const compactos = resto.slice(4);
 
   return (
-    <section>
+    <section className="@container">
       <p className="label-mono text-mute mb-4">Artistas</p>
 
-      <Destacado entrada={primero} url={imagenes[primero.key]} />
+      <DestacadoTop
+        nombre={primero.name}
+        plays={primero.plays}
+        ms={primero.ms}
+        url={imagenes[primero.key]}
+        href={`/escucha/artista/${encodeURIComponent(primero.key)}`}
+      />
 
       <ul className="mt-2">
         {medios.map((e, i) => (
@@ -80,43 +87,6 @@ export default function TopArtistas({
         ))}
       </ul>
     </section>
-  );
-}
-
-function Destacado({ entrada, url }: { entrada: Entrada; url?: string }) {
-  return (
-    <Link
-      href={`/escucha/artista/${encodeURIComponent(entrada.key)}`}
-      className="group relative flex items-end gap-5 overflow-hidden rounded-2xl
-                 bg-ink-2/40 p-5 ring-1 ring-rule
-                 transition-[background-color,box-shadow] duration-300
-                 hover:bg-ink-2 hover:ring-acid/40 rise"
-    >
-      {/* Halo detrás de la foto: da profundidad sin recurrir a una sombra, que
-          sobre un fondo casi negro no se ve. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full
-                   bg-acid/[0.06] blur-3xl transition-opacity duration-500
-                   group-hover:bg-acid/[0.12]"
-      />
-
-      <Miniatura nombre={entrada.name} url={url} lado={104} redondeo="rounded-2xl" />
-
-      <span className="relative min-w-0 flex-1">
-        <span className="label-mono text-acid">01</span>
-        <span
-          className="mt-1 block truncate display text-[clamp(1.6rem,3vw,2.6rem)]
-                     transition-colors duration-200 group-hover:text-acid"
-        >
-          {entrada.name}
-        </span>
-        <span className="mt-2 block dato-mono text-mute num-tabular">
-          {entrada.plays.toLocaleString("es")} reproducciones ·{" "}
-          {duracion(entrada.ms)}
-        </span>
-      </span>
-    </Link>
   );
 }
 
