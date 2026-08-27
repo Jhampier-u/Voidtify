@@ -28,6 +28,19 @@ type Medidas = { ancho: number; alto: number };
 /** Escala todo respecto al lienzo vertical, que es el de referencia. */
 const escalaDe = (m: Medidas) => m.alto / 1920;
 
+/**
+ * Encoge el cuerpo de letra según lo largo que sea el nombre.
+ *
+ * Satori no sabe ajustar texto a una caja, así que o se escala a mano o un
+ * título como «Main Title (from Game of Thrones) - from "House of the Dragon:
+ * Season 3"» se come tres líneas y desequilibra la tarjeta.
+ */
+function tamanoPorLargo(nombre: string, grande: number, medio: number, chico: number) {
+  if (nombre.length > 46) return chico;
+  if (nombre.length > 22) return medio;
+  return grande;
+}
+
 function Cabecera({ etiqueta, k }: { etiqueta: string; k: number }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
@@ -511,7 +524,7 @@ export function TopArtistas({ datos, medidas }: { datos: DatosTarjeta; medidas: 
             >
               <span
                 style={{
-                  fontSize: (a.nombre.length > 18 ? 46 : 58) * k,
+                  fontSize: tamanoPorLargo(a.nombre, 58, 46, 38) * k,
                   color: i === 0 ? ACID : CREAM,
                   lineHeight: 1.15,
                 }}
@@ -601,9 +614,221 @@ export function Racha({ datos, medidas }: { datos: DatosTarjeta; medidas: Medida
   );
 }
 
+/**
+ * Portada de disco: tu número uno como si fuera un vinilo.
+ *
+ * La carátula ocupa casi todo el ancho y el texto va debajo, que es como se
+ * mira una funda de verdad — la imagen primero y el nombre después. Con la
+ * carátula pequeña y el texto grande volvería a ser una ficha con una foto al
+ * lado, que es de lo que veníamos.
+ */
+export function Disco({ datos, medidas }: { datos: DatosTarjeta; medidas: Medidas }) {
+  const k = escalaDe(medidas);
+  const uno = datos.topCanciones[0];
+  const margen = 90 * k;
+  const lado = Math.min(medidas.ancho - margen * 2, medidas.alto * 0.5);
+
+  return (
+    <Marco
+      etiqueta={`Tu número uno · ${datos.etiqueta}`}
+      pie={datos.periodo}
+      medidas={medidas}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        {uno?.imagen ? (
+          <img
+            alt=""
+            src={uno.imagen}
+            width={lado}
+            height={lado}
+            style={{ objectFit: "cover", flexShrink: 0 }}
+          />
+        ) : (
+          <div
+            style={{
+              width: lado,
+              height: lado,
+              backgroundColor: INK_2,
+              display: "flex",
+              flexShrink: 0,
+            }}
+          />
+        )}
+
+        <span
+          style={{
+            fontSize: tamanoPorLargo(uno?.nombre ?? "", 84, 62, 44) * k,
+            color: CREAM,
+            lineHeight: 1.1,
+            marginTop: 54 * k,
+            textAlign: "center",
+          }}
+        >
+          {uno?.nombre ?? "Nada todavía"}
+        </span>
+
+        {uno?.secundario && (
+          <span
+            style={{
+              fontSize: 50 * k,
+              color: ACID,
+              marginTop: 18 * k,
+              textAlign: "center",
+            }}
+          >
+            {uno.secundario}
+          </span>
+        )}
+
+        {uno && (
+          <span
+            style={{
+              fontFamily: "JetBrains",
+              fontSize: 32 * k,
+              letterSpacing: 2 * k,
+              color: MUTE,
+              marginTop: 40 * k,
+            }}
+          >
+            {`${uno.plays} REPRODUCCIONES · ${Math.round(uno.ms / 60000)} MIN`}
+          </span>
+        )}
+      </div>
+    </Marco>
+  );
+}
+
+/**
+ * Contraportada: el tracklist con sus carátulas.
+ *
+ * Numerado y con la duración a la derecha, como el reverso de una funda. Las
+ * carátulas van pequeñas: aquí mandan el orden y los nombres, y una imagen
+ * grande por fila convertiría la lista en un catálogo.
+ */
+export function Tracklist({ datos, medidas }: { datos: DatosTarjeta; medidas: Medidas }) {
+  const k = escalaDe(medidas);
+  const vertical = medidas.alto > medidas.ancho;
+  const lista = datos.topCanciones.slice(0, vertical ? 10 : 6);
+  const lado = (vertical ? 78 : 66) * k;
+
+  return (
+    <Marco
+      etiqueta={`Cara A · ${datos.etiqueta}`}
+      pie={datos.periodo}
+      medidas={medidas}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          justifyContent: "center",
+          width: "100%",
+        }}
+      >
+        {lista.map((c, i) => (
+          <div
+            key={`${c.nombre}-${i}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              width: "100%",
+              paddingTop: 18 * k,
+              paddingBottom: 18 * k,
+              borderTop:
+                i === 0 ? "none" : `${Math.max(1, Math.round(2 * k))}px solid ${RULE}`,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "JetBrains",
+                fontSize: 30 * k,
+                color: i === 0 ? ACID : MUTE,
+                width: 66 * k,
+                flexShrink: 0,
+              }}
+            >
+              {String(i + 1).padStart(2, "0")}
+            </span>
+
+            {c.imagen ? (
+              <img
+                alt=""
+                src={c.imagen}
+                width={lado}
+                height={lado}
+                style={{ objectFit: "cover", flexShrink: 0 }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: lado,
+                  height: lado,
+                  backgroundColor: INK_2,
+                  display: "flex",
+                  flexShrink: 0,
+                }}
+              />
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                marginLeft: 28 * k,
+                flexGrow: 1,
+                flexShrink: 1,
+                minWidth: 0,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: tamanoPorLargo(c.nombre, 42, 34, 30) * k,
+                  color: i === 0 ? ACID : CREAM,
+                  lineHeight: 1.15,
+                }}
+              >
+                {c.nombre}
+              </span>
+              {c.secundario && (
+                <span style={{ fontSize: 28 * k, color: MUTE, marginTop: 6 * k }}>
+                  {c.secundario}
+                </span>
+              )}
+            </div>
+
+            <span
+              style={{
+                fontFamily: "JetBrains",
+                fontSize: 30 * k,
+                color: MUTE,
+                marginLeft: 24 * k,
+                flexShrink: 0,
+              }}
+            >
+              {c.plays}
+            </span>
+          </div>
+        ))}
+      </div>
+    </Marco>
+  );
+}
+
 export const DIBUJOS = {
   resumen: Resumen,
   "top-artistas": TopArtistas,
   cartel: Cartel,
+  disco: Disco,
+  tracklist: Tracklist,
   racha: Racha,
 } as const;

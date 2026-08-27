@@ -8,6 +8,8 @@ const TARJETAS = [
   { tipo: "cartel", label: "Cartel", nota: "tus artistas como cartel de festival" },
   { tipo: "resumen", label: "Resumen", nota: "las horas, sobre tus carátulas" },
   { tipo: "top-artistas", label: "Top artistas", nota: "los cinco, con su foto" },
+  { tipo: "disco", label: "Portada", nota: "tu número uno como si fuera un vinilo" },
+  { tipo: "tracklist", label: "Contraportada", nota: "el tracklist con sus carátulas" },
   { tipo: "racha", label: "Racha", nota: "días seguidos con música" },
 ] as const;
 

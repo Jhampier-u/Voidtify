@@ -8,7 +8,14 @@
  * anteriores — a ciegas, y se nota.
  */
 
-export const TIPOS = ["resumen", "top-artistas", "cartel", "racha"] as const;
+export const TIPOS = [
+  "resumen",
+  "top-artistas",
+  "cartel",
+  "disco",
+  "tracklist",
+  "racha",
+] as const;
 
 export type Tipo = (typeof TIPOS)[number];
 
