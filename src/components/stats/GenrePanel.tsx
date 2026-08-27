@@ -159,9 +159,13 @@ export default function GenrePanel({
                              text-left transition-colors duration-200 hover:bg-ink-2/40
                              outline-none focus-visible:ring-1 focus-visible:ring-acid"
                 >
+                  {/* En un telefono las columnas fijas sumaban 336 px de los
+                      335 disponibles y la barra se quedaba sin sitio. El
+                      nombre encoge y los oyentes se van, que ademas salen al
+                      desplegar el genero. */}
                   <span
-                    className={`w-40 shrink-0 truncate transition-colors duration-200
-                                group-hover:text-acid ${
+                    className={`w-28 shrink-0 truncate transition-colors duration-200
+                                group-hover:text-acid sm:w-40 ${
                                   abierto === g.clave ? "text-acid" : ""
                                 }`}
                   >
@@ -180,7 +184,7 @@ export default function GenrePanel({
                     />
                   </span>
 
-                  <span className="dato-mono num-tabular w-14 shrink-0 text-right text-cream-dim">
+                  <span className="dato-mono num-tabular w-12 shrink-0 text-right text-cream-dim sm:w-14">
                     {(g.share * 100).toFixed(1)} %
                   </span>
 
@@ -188,7 +192,7 @@ export default function GenrePanel({
                       nicho o de todo el mundo. Mediana y no media: un artista
                       enorme dentro de un género pequeño la haría mentir. */}
                   <span
-                    className="dato-mono num-tabular w-20 shrink-0 text-right text-mute"
+                    className="dato-mono num-tabular hidden w-20 shrink-0 text-right text-mute sm:block"
                     title={
                       g.oyentes === null
                         ? "sin datos de Last.fm"

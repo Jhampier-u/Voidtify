@@ -190,7 +190,7 @@ function CasillaRica({
           del diez por ciento: `Miniatura` pinta las iniciales cuando falta,
           para que el hueco se vea intencionado y no roto. */}
       {destacado && (
-        <span className="relative mt-auto flex items-center gap-1.5 pt-2">
+        <span className="relative mt-auto hidden items-center gap-1.5 pt-2 sm:flex">
           <Miniatura
             nombre={destacado.trackName}
             url={caratula}
@@ -206,7 +206,10 @@ function CasillaRica({
   );
 
   const clases =
-    "group relative flex min-h-[92px] flex-col overflow-hidden rounded-lg " +
+    // A 375 px cada casilla de la semana mide 46: con 92 de alto sale una
+    // columna estrecha y altisima donde no cabe nada. En movil se queda con el
+    // numero y la cifra, que es lo que se lee de un vistazo.
+    "group relative flex min-h-[58px] flex-col overflow-hidden rounded-lg sm:min-h-[92px] " +
     "bg-ink-2/70 p-2 ring-1 ring-rule transition-[box-shadow] duration-200 " +
     "outline-none focus-visible:ring-acid";
 

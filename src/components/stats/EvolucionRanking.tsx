@@ -16,7 +16,8 @@ const ALTO = 26;
  */
 function Linea({ posiciones }: { posiciones: (number | null)[] }) {
   const conocidas = posiciones.filter((p): p is number => p !== null);
-  if (conocidas.length < 2) return <span className="inline-block w-[120px]" />;
+  if (conocidas.length < 2)
+    return <span className="hidden w-[120px] sm:inline-block" />;
 
   const max = Math.max(...conocidas);
   const min = Math.min(...conocidas);
@@ -46,7 +47,11 @@ function Linea({ posiciones }: { posiciones: (number | null)[] }) {
   return (
     <svg
       viewBox={`0 0 ${ANCHO} ${ALTO}`}
-      className="h-[26px] w-[120px] shrink-0 overflow-visible"
+      // Se esconde en el movil: entre el puesto, la miniatura, los 120 px de
+      // la linea y el movimiento quedaban unos sesenta para el nombre, que es
+      // el dato que hay que poder leer. El movimiento sigue contando la
+      // historia en pequeno.
+      className="hidden h-[26px] w-[120px] shrink-0 overflow-visible sm:block"
       aria-hidden
     >
       {tramos.map((t) => (
