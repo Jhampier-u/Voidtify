@@ -144,8 +144,13 @@ export async function materializeSmartPlaylist(
   // 1. Source tracks
   const { tracks: cachedTracks } = await getCachedLikedTracks();
   if (cachedTracks.length === 0) {
+    // El escaner que llenaba esta cache vivia en /stats, que se retiro. Sin
+    // el, la cache no se puede llenar: el mensaje lo dice en vez de mandar a
+    // una pagina que ya no existe.
     throw new Error(
-      "No hay Liked Songs en cache. Ve a Stats y escanea primero.",
+      "No hay Liked Songs en cache, y el escaner que la llenaba se retiro " +
+        "con la pagina /stats. Las listas inteligentes no pueden sincronizar " +
+        "hasta que se rehaga esa carga.",
     );
   }
 

@@ -18,7 +18,6 @@ export default function TopBar({
     | "library"
     | "tags"
     | "smart"
-    | "stats"
     | "ajustes";
 }) {
   return (

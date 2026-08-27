@@ -6,10 +6,8 @@ import { requireSession } from "./require-session";
 import {
   spotifyFetch,
   getPlaylistTracks,
-  getLikedSongs,
   type SpotifyPlaylist,
   type PlaylistTrackItem,
-  type SavedTrackItem,
 } from "./spotify";
 
 const CHUNK = 100;
@@ -139,20 +137,6 @@ export async function cleanupDuplicates(
 
   invalidatePlaylist(playlistId);
   return { removed: dupUris.length, readded: dupUris.length };
-}
-
-/** Single page of liked songs — used by client-side progressive loaders. */
-export async function fetchLikedPage(
-  offset: number,
-  limit = 50,
-): Promise<{
-  items: SavedTrackItem[];
-  total: number;
-  next: string | null;
-}> {
-  await requireSession();
-  const data = await getLikedSongs(limit, offset);
-  return { items: data.items, total: data.total, next: data.next };
 }
 
 /** Fetches a single page of playlist items — used for lazy "Cargar más". */
