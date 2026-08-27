@@ -25,8 +25,16 @@ describe("esquema", () => {
     const nombres = tablas(sqlite);
     expect(nombres).toContain("artists");
     expect(nombres).toContain("tags");
-    expect(nombres).toContain("liked_tracks");
-    expect(nombres).toContain("smart_playlists");
+  });
+
+  // liked_tracks y smart_playlists se retiraron con /smart. La base real las
+  // conserva vacias —el DDL solo crea, nunca borra— pero el esquema ya no las
+  // declara, asi que nadie deberia volver a escribir en ellas.
+  it("ya no declara las tablas de las listas inteligentes", () => {
+    const { sqlite } = createTestDb();
+    const nombres = tablas(sqlite);
+    expect(nombres).not.toContain("liked_tracks");
+    expect(nombres).not.toContain("smart_playlists");
   });
 
   it("rechaza dos streams con el mismo dedup_key", () => {

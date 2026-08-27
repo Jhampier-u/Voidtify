@@ -61,7 +61,7 @@ export default async function LibraryPage({
 
   return (
     <main className="min-h-screen flex flex-col">
-      <TopBar me={me} active="library" />
+      <TopBar me={me} active="guardadas" />
 
       <Header total={liked.total} />
 
@@ -251,8 +251,8 @@ function Pagination({
   endIndex: number;
   total: number;
 }) {
-  const prev = page > 1 ? `/library?page=${page - 1}` : null;
-  const next = page < totalPages ? `/library?page=${page + 1}` : null;
+  const prev = page > 1 ? `/guardadas?page=${page - 1}` : null;
+  const next = page < totalPages ? `/guardadas?page=${page + 1}` : null;
 
   return (
     <nav className="mt-12 flex items-center justify-between hairline-b pt-6">

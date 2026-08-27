@@ -40,40 +40,6 @@ export const trackTags = sqliteTable(
   }),
 );
 
-/** Cached scan of the user's Liked Songs — avoids re-fetching from Spotify. */
-export const likedTracks = sqliteTable("liked_tracks", {
-  uri: text("uri").primaryKey(),
-  name: text("name").notNull(),
-  /** JSON: [{id, name}]. */
-  artistsJson: text("artists_json").notNull(),
-  albumId: text("album_id"),
-  albumName: text("album_name"),
-  albumImage: text("album_image"),
-  durationMs: integer("duration_ms").notNull().default(0),
-  explicit: integer("explicit").notNull().default(0),
-  addedAt: text("added_at"),
-  scannedAt: integer("scanned_at").notNull(),
-});
-
-export type LikedTrackRow = typeof likedTracks.$inferSelect;
-
-/** User-defined dynamic playlists with rules. */
-export const smartPlaylists = sqliteTable("smart_playlists", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull(),
-  description: text("description"),
-  /** JSON-encoded rules — see SmartRules type. */
-  rulesJson: text("rules_json").notNull().default("{}"),
-  /** Set after first materialize. */
-  spotifyPlaylistId: text("spotify_playlist_id"),
-  lastSyncedAt: integer("last_synced_at"),
-  lastSyncCount: integer("last_sync_count"),
-  createdAt: integer("created_at").notNull(),
-  updatedAt: integer("updated_at").notNull(),
-});
-
-export type SmartPlaylistRow = typeof smartPlaylists.$inferSelect;
-
 /** Fuente única de escuchas. Alimentada por la captura vía API y por el dump. */
 export const streams = sqliteTable(
   "streams",

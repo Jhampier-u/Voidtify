@@ -15,9 +15,8 @@ export default function TopBar({
     | "descubrir"
     | "informes"
     | "biblioteca"
-    | "library"
+    | "guardadas"
     | "tags"
-    | "smart"
     | "ajustes";
 }) {
   return (
@@ -46,14 +45,11 @@ export default function TopBar({
           <NavLink href="/biblioteca" active={active === "biblioteca"}>
             Biblioteca
           </NavLink>
-          <NavLink href="/library" active={active === "library"}>
-            Liked
+          <NavLink href="/guardadas" active={active === "guardadas"}>
+            Guardadas
           </NavLink>
           <NavLink href="/tags" active={active === "tags"}>
             Tags
-          </NavLink>
-          <NavLink href="/smart" active={active === "smart"}>
-            Smart
           </NavLink>
           <NavLink href="/ajustes" active={active === "ajustes"}>
             Ajustes
