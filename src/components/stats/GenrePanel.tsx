@@ -7,6 +7,7 @@ import {
   rellenarGeneros,
   type ResultadoRelleno,
 } from "@/lib/genre-fill-actions";
+import { getRitmoDeGenero, type RitmoDeGenero } from "@/lib/genero-actions";
 import type { EntradaEtiqueta } from "@/lib/stats/genres";
 
 /** `84 K`, `1,2 M`. Los oyentes de Last.fm llegan a las decenas de millones. */
@@ -54,6 +55,28 @@ export default function GenrePanel({
   const [pendiente, startTransition] = useTransition();
   const [ultimo, setUltimo] = useState<ResultadoRelleno | null>(null);
   const [abierto, setAbierto] = useState<string | null>(null);
+  // El ritmo se pide al desplegar y se queda cacheado: volver a abrir el mismo
+  // genero no deberia costar otra consulta.
+  const [ritmos, setRitmos] = useState<Record<string, RitmoDeGenero | null>>({});
+
+  const abrir = (nombre: string) => {
+    if (abierto === nombre) {
+      setAbierto(null);
+      return;
+    }
+    setAbierto(nombre);
+    if (ritmos[nombre] !== undefined) return;
+
+    // `null` marca «pedido y sin respuesta todavia», que es distinto de «no
+    // pedido»: sin la marca, cada render volveria a lanzar la consulta.
+    setRitmos((r) => ({ ...r, [nombre]: null }));
+    void getRitmoDeGenero(
+      nombre,
+      rangeParams.preset,
+      rangeParams.desde,
+      rangeParams.hasta,
+    ).then((v) => setRitmos((r) => ({ ...r, [nombre]: v })));
+  };
 
   const rellenar = () => {
     startTransition(async () => {
@@ -101,7 +124,7 @@ export default function GenrePanel({
               <li key={g.name}>
                 <button
                   type="button"
-                  onClick={() => setAbierto(abierto === g.name ? null : g.name)}
+                  onClick={() => abrir(g.name)}
                   aria-expanded={abierto === g.name}
                   className="group flex w-full items-center gap-3 rounded-lg px-1 py-1
                              text-left transition-colors duration-200 hover:bg-ink-2/40
@@ -152,6 +175,8 @@ export default function GenrePanel({
                       {g.artistas === 1 ? "artista tuyo" : "artistas tuyos"} ·{" "}
                       {g.plays.toLocaleString("es")} reproducciones
                     </p>
+
+                    <Ritmo ritmo={ritmos[g.name]} />
 
                     <ul className="flex flex-wrap gap-2">
                       {g.top.map((a) => (
@@ -248,6 +273,46 @@ export default function GenrePanel({
         </aside>
       </div>
     </section>
+  );
+}
+
+/**
+ * A qué horas suena el género.
+ *
+ * Se pide al desplegar y no con la página: calcularlo para los doce géneros
+ * cuesta unos setecientos milisegundos sobre el historial entero, y es un
+ * detalle que no se mira hasta que se abre uno.
+ */
+function Ritmo({ ritmo }: { ritmo: RitmoDeGenero | null | undefined }) {
+  if (ritmo === undefined) return null;
+  if (ritmo === null) {
+    return <p className="dato-mono text-mute mb-3">buscando a qué horas suena…</p>;
+  }
+  if (ritmo.franjas.length === 0) return null;
+
+  const max = Math.max(...ritmo.franjas.map((f) => f.share));
+
+  return (
+    <div className="mb-4 flex flex-wrap gap-x-6 gap-y-2">
+      {ritmo.franjas.map((f) => (
+        <span key={f.nombre} className="min-w-24">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="dato-mono text-mute">{f.nombre}</span>
+            <span className="dato-mono num-tabular text-cream-dim">
+              {(f.share * 100).toFixed(0)} %
+            </span>
+          </span>
+          <span className="mt-1 block h-1 overflow-hidden rounded-full bg-ink">
+            <span
+              className={`block h-full rounded-full ${
+                f.share === max ? "bg-acid" : "bg-cream-dim/30"
+              }`}
+              style={{ width: `${(f.share / max) * 100}%` }}
+            />
+          </span>
+        </span>
+      ))}
+    </div>
   );
 }
 
