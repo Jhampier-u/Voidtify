@@ -10,8 +10,11 @@ import {
 } from "@/lib/descubrir-actions";
 import { createPlaylistFromTracks } from "@/lib/spotify-actions";
 import Miniatura from "@/components/stats/Miniatura";
+import SelectorSemilla, { type SemillaElegida } from "@/components/SelectorSemilla";
 
 export default function Descubrimiento({ preset }: { preset?: string }) {
+  const [semilla, setSemilla] = useState<SemillaElegida | null>(null);
+  const [deDonde, setDeDonde] = useState("lo que más escuchas");
   const [sugerencias, setSugerencias] = useState<Sugerencia[] | null>(null);
   const [semillas, setSemillas] = useState<string[]>([]);
   const [indice, setIndice] = useState(0);
@@ -40,10 +43,17 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
     setError(null);
     try {
       const [r, d] = await Promise.all([
-        obtenerSugerencias(preset),
+        obtenerSugerencias(
+          preset,
+          40,
+          semilla
+            ? { tipo: semilla.tipo, a: semilla.a, b: semilla.b }
+            : undefined,
+        ),
         listarDispositivos().catch((): Dispositivo[] => []),
       ]);
       setSugerencias(r.sugerencias);
+      setDeDonde(r.etiqueta);
       setSemillas(r.semillas);
       setIndice(0);
       setGuardadas([]);
@@ -111,11 +121,16 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
 
   if (!lista) {
     return (
-      <section className="px-8 py-20 max-w-2xl">
+      <section className="px-8 py-20 max-w-3xl">
         <p className="font-serif italic text-xl text-cream-dim mb-8">
-          Canciones que no has escuchado nunca, a partir de las que más
-          escuchas.
+          Canciones que no has escuchado nunca. Puedes partir de lo que más
+          escuchas o pedirle que salga de algo concreto.
         </p>
+
+        <div className="mb-8">
+          <SelectorSemilla elegida={semilla} onElegir={setSemilla} />
+        </div>
+
         <button
           onClick={buscar}
           disabled={cargando}
@@ -231,8 +246,7 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
               : "Artista nuevo para ti"}
             {" · "}
             <span className="text-mute">
-              sale de {actual.semillas}{" "}
-              {actual.semillas === 1 ? "canción tuya" : "canciones tuyas"}
+              por {actual.desde}
             </span>
           </p>
           <h2 className="display-italic text-[clamp(1.8rem,5vw,3.4rem)] leading-[0.95] break-words mb-3">
@@ -270,7 +284,7 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
       {semillas.length > 0 && (
         <details className="mt-16">
           <summary className="label-mono text-mute cursor-pointer hover:text-cream">
-            De dónde sale todo esto
+            De dónde sale todo esto · {deDonde}
           </summary>
           <ul className="mt-4 space-y-1">
             {semillas.map((s) => (

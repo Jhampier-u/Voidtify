@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mezclar, type SimilarEntrada } from "@/lib/descubrir/mezcla";
+import { mezclar, type Rama, type SimilarEntrada } from "@/lib/descubrir/mezcla";
 import { artistKey, trackKey } from "@/lib/stats/normalize";
 
 const SIN_NADA = new Set<string>();
@@ -8,6 +8,12 @@ function e(artista: string, titulo: string, match: number): SimilarEntrada {
   return { artista, titulo, match };
 }
 
+/** Una rama de la mezcla. El origen solo importa donde se comprueba. */
+const rama = (entradas: SimilarEntrada[], origen = "semilla"): Rama => ({
+  origen,
+  entradas,
+});
+
 describe("mezclar", () => {
   it("devuelve vacío cuando no hay sugerencias", () => {
     expect(mezclar([], SIN_NADA, SIN_NADA, 10)).toEqual([]);
@@ -15,7 +21,7 @@ describe("mezclar", () => {
 
   it("suma el parecido de las semillas que coinciden", () => {
     const r = mezclar(
-      [[e("Ride", "Vapour Trail", 0.6)], [e("Ride", "Vapour Trail", 0.3)]],
+      [rama([e("Ride", "Vapour Trail", 0.6)]), rama([e("Ride", "Vapour Trail", 0.3)])],
       SIN_NADA,
       SIN_NADA,
       10,
@@ -30,8 +36,8 @@ describe("mezclar", () => {
   it("pone por delante lo que traen varias semillas", () => {
     const r = mezclar(
       [
-        [e("Ride", "Vapour Trail", 0.5), e("Lush", "De-Luxe", 0.9)],
-        [e("Ride", "Vapour Trail", 0.5)],
+        rama([e("Ride", "Vapour Trail", 0.5), e("Lush", "De-Luxe", 0.9)]),
+        rama([e("Ride", "Vapour Trail", 0.5)]),
       ],
       SIN_NADA,
       SIN_NADA,
@@ -43,7 +49,7 @@ describe("mezclar", () => {
 
   it("no cuenta dos veces una canción repetida dentro de la misma semilla", () => {
     const r = mezclar(
-      [[e("Ride", "Vapour Trail", 0.5), e("Ride", "Vapour Trail", 0.5)]],
+      [rama([e("Ride", "Vapour Trail", 0.5), e("Ride", "Vapour Trail", 0.5)])],
       SIN_NADA,
       SIN_NADA,
       10,
@@ -56,7 +62,7 @@ describe("mezclar", () => {
     it("se descarta", () => {
       const conocidas = new Set([trackKey("Ride", "Vapour Trail")]);
       const r = mezclar(
-        [[e("Ride", "Vapour Trail", 0.9), e("Lush", "De-Luxe", 0.4)]],
+        [rama([e("Ride", "Vapour Trail", 0.9), e("Lush", "De-Luxe", 0.4)])],
         conocidas,
         SIN_NADA,
         10,
@@ -68,7 +74,7 @@ describe("mezclar", () => {
     // pasarían por artistas distintos y colarían canciones ya escuchadas.
     it("se descarta aunque venga con otra grafía", () => {
       const conocidas = new Set([trackKey("Björk", "Jóga")]);
-      const r = mezclar([[e("BJORK", "Joga", 0.9)]], conocidas, SIN_NADA, 10);
+      const r = mezclar([rama([e("BJORK", "Joga", 0.9)])], conocidas, SIN_NADA, 10);
       expect(r).toEqual([]);
     });
   });
@@ -76,7 +82,7 @@ describe("mezclar", () => {
   it("marca si el artista ya te suena", () => {
     const artistas = new Set([artistKey("Ride")]);
     const r = mezclar(
-      [[e("Ride", "Vapour Trail", 0.5), e("Lush", "De-Luxe", 0.4)]],
+      [rama([e("Ride", "Vapour Trail", 0.5), e("Lush", "De-Luxe", 0.4)])],
       SIN_NADA,
       artistas,
       10,
@@ -88,7 +94,7 @@ describe("mezclar", () => {
   describe("entradas defectuosas", () => {
     it("ignora artista o título vacíos", () => {
       const r = mezclar(
-        [[e("", "Vapour Trail", 0.5), e("Ride", "   ", 0.5)]],
+        [rama([e("", "Vapour Trail", 0.5), e("Ride", "   ", 0.5)])],
         SIN_NADA,
         SIN_NADA,
         10,
@@ -101,7 +107,7 @@ describe("mezclar", () => {
     // puntuación y el candidato quedaría fuera de todo orden.
     it("ignora un parecido que no es número", () => {
       const r = mezclar(
-        [[e("Ride", "Vapour Trail", NaN), e("Lush", "De-Luxe", 0.4)]],
+        [rama([e("Ride", "Vapour Trail", NaN), e("Lush", "De-Luxe", 0.4)])],
         SIN_NADA,
         SIN_NADA,
         10,
@@ -114,7 +120,7 @@ describe("mezclar", () => {
     const lista = Array.from({ length: 50 }, (_, i) =>
       e("Artista", `Tema ${i}`, i / 100),
     );
-    expect(mezclar([lista], SIN_NADA, SIN_NADA, 5)).toHaveLength(5);
+    expect(mezclar([rama(lista)], SIN_NADA, SIN_NADA, 5)).toHaveLength(5);
   });
 
   // Sin desempate explícito el orden dependería del recorrido del Map y la
@@ -125,8 +131,55 @@ describe("mezclar", () => {
       e("Alfa", "Dos", 0.5),
       e("Media", "Tres", 0.5),
     ];
-    const primera = mezclar([entradas], SIN_NADA, SIN_NADA, 10);
-    const segunda = mezclar([[...entradas].reverse()], SIN_NADA, SIN_NADA, 10);
+    const primera = mezclar([rama(entradas)], SIN_NADA, SIN_NADA, 10);
+    const segunda = mezclar(
+      [rama([...entradas].reverse())],
+      SIN_NADA,
+      SIN_NADA,
+      10,
+    );
     expect(primera.map((c) => c.clave)).toEqual(segunda.map((c) => c.clave));
+  });
+
+  // Sin esto la lista es un monton de nombres: quien mira no puede juzgar si
+  // la sugerencia tiene sentido.
+  describe("de donde salio cada una", () => {
+    it("lo guarda", () => {
+      const r = mezclar(
+        [rama([e("Ride", "Vapour Trail", 0.9)], "Duster")],
+        SIN_NADA,
+        SIN_NADA,
+        10,
+      );
+      expect(r[0].desde).toBe("Duster");
+    });
+
+    // Con doce semillas, la primera que lo trae es casi siempre la del
+    // recorrido y no la que lo explica.
+    it("se queda con la semilla a la que mas se parece, no con la primera", () => {
+      const r = mezclar(
+        [
+          rama([e("Ride", "Vapour Trail", 0.2)], "floja"),
+          rama([e("Ride", "Vapour Trail", 0.9)], "fuerte"),
+        ],
+        SIN_NADA,
+        SIN_NADA,
+        10,
+      );
+      expect(r[0].desde).toBe("fuerte");
+    });
+
+    it("no cambia de semilla si la nueva se parece menos", () => {
+      const r = mezclar(
+        [
+          rama([e("Ride", "Vapour Trail", 0.9)], "fuerte"),
+          rama([e("Ride", "Vapour Trail", 0.2)], "floja"),
+        ],
+        SIN_NADA,
+        SIN_NADA,
+        10,
+      );
+      expect(r[0].desde).toBe("fuerte");
+    });
   });
 });

@@ -203,3 +203,127 @@ export async function getSimilarTracks(
     return [];
   }
 }
+
+/** Forma común de las respuestas de listas de Last.fm. */
+type ListaLastfm = {
+  error?: number;
+  message?: string;
+  similarartists?: { artist?: unknown };
+  toptracks?: { track?: unknown };
+  tracks?: { track?: unknown };
+};
+
+/**
+ * Pide a Last.fm y devuelve la lista, o `[]` ante cualquier problema.
+ *
+ * Todo lo que alimenta el descubrimiento falla igual: una semilla que no
+ * responde debe restar sugerencias, nunca tumbar la pantalla. Centralizarlo
+ * evita que cada método nuevo reinvente ese criterio y se le olvide un caso.
+ */
+async function pedirLista(
+  params: Record<string, string>,
+  extraer: (d: ListaLastfm) => unknown,
+  queEs: string,
+): Promise<Record<string, unknown>[]> {
+  const apiKey = process.env.LASTFM_API_KEY;
+  if (!apiKey) return [];
+
+  const query = new URLSearchParams({ ...params, api_key: apiKey, format: "json" });
+
+  try {
+    await lastfmLimiter.acquire();
+    const res = await fetch(`${LASTFM_API}?${query}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      console.warn(`[lastfm] HTTP ${res.status} en ${queEs}`);
+      return [];
+    }
+    const data = (await res.json()) as ListaLastfm;
+    if (data.error) {
+      console.warn(`[lastfm] error ${data.error} en ${queEs}: ${data.message ?? ""}`);
+      return [];
+    }
+    // Con un solo resultado, Last.fm devuelve el objeto suelto y no un array.
+    const raw = extraer(data);
+    return (Array.isArray(raw) ? raw : raw ? [raw] : []) as Record<string, unknown>[];
+  } catch (e) {
+    console.warn(`[lastfm] fallo en ${queEs}:`, e);
+    return [];
+  }
+}
+
+const texto = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+/** Artistas parecidos a uno dado, con su grado de parecido entre 0 y 1. */
+export async function getSimilarArtists(
+  artist: string,
+  limit = 10,
+): Promise<{ nombre: string; match: number }[]> {
+  if (!artist?.trim()) return [];
+
+  const lista = await pedirLista(
+    { method: "artist.getSimilar", artist, limit: String(limit), autocorrect: "1" },
+    (d) => d.similarartists?.artist,
+    `parecidos a "${artist}"`,
+  );
+
+  return lista
+    .map((a) => ({
+      nombre: texto(a.name),
+      // El parecido llega unas veces como número y otras como cadena.
+      match: typeof a.match === "number" ? a.match : parseFloat(texto(a.match)),
+    }))
+    .filter((a) => a.nombre && Number.isFinite(a.match));
+}
+
+/** Los temas más escuchados de un artista. */
+export async function getArtistTopTracks(
+  artist: string,
+  limit = 10,
+): Promise<{ artista: string; titulo: string }[]> {
+  if (!artist?.trim()) return [];
+
+  const lista = await pedirLista(
+    { method: "artist.getTopTracks", artist, limit: String(limit), autocorrect: "1" },
+    (d) => d.toptracks?.track,
+    `top de "${artist}"`,
+  );
+
+  return lista
+    .map((t) => ({
+      artista: texto((t.artist as { name?: unknown } | undefined)?.name) || artist,
+      titulo: texto(t.name),
+    }))
+    .filter((t) => t.titulo);
+}
+
+/**
+ * Los temas más escuchados de una etiqueta.
+ *
+ * Last.fm no da parecido aquí, solo un orden. Se convierte el puesto en una
+ * puntuación decreciente para que la mezcla pueda tratarlo igual que lo demás:
+ * sin ella, todos los candidatos de un género empatarían y el orden lo
+ * decidiría el desempate alfabético.
+ */
+export async function getTagTopTracks(
+  tag: string,
+  limit = 50,
+): Promise<{ artista: string; titulo: string; match: number }[]> {
+  if (!tag?.trim()) return [];
+
+  const lista = await pedirLista(
+    { method: "tag.getTopTracks", tag, limit: String(limit) },
+    (d) => d.tracks?.track,
+    `top de la etiqueta "${tag}"`,
+  );
+
+  return lista
+    .map((t, i) => ({
+      artista: texto((t.artist as { name?: unknown } | undefined)?.name),
+      titulo: texto(t.name),
+      match: 1 - i / Math.max(1, lista.length),
+    }))
+    .filter((t) => t.artista && t.titulo);
+}

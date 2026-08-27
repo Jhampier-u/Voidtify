@@ -14,6 +14,13 @@ export type SimilarEntrada = {
   match: number;
 };
 
+/** Una respuesta de Last.fm junto con de dónde salió, para poder explicarla. */
+export type Rama = {
+  /** Lo que se enseña: «Duster», «shoegaze», «Alison — Slowdive». */
+  origen: string;
+  entradas: SimilarEntrada[];
+};
+
 export type Candidato = {
   clave: string;
   artistaClave: string;
@@ -29,6 +36,13 @@ export type Candidato = {
    * clases de descubrimiento distintas.
    */
   artistaConocido: boolean;
+  /**
+   * De qué semilla salió con más fuerza.
+   *
+   * Es la diferencia entre una lista de nombres y una recomendación: sin decir
+   * «por Duster», quien mira no tiene forma de juzgar si tiene sentido.
+   */
+  desde: string;
 };
 
 /**
@@ -39,14 +53,16 @@ export type Candidato = {
  * descubrir nada, y es justo lo que haría un motor que solo mirase parecido.
  */
 export function mezclar(
-  porSemilla: SimilarEntrada[][],
+  ramas: Rama[],
   conocidas: ReadonlySet<string>,
   artistasConocidos: ReadonlySet<string>,
   limite: number,
 ): Candidato[] {
   const acumulado = new Map<string, Candidato>();
+  /** El mejor parecido visto por candidato, para saber quién lo trajo. */
+  const mejor = new Map<string, number>();
 
-  for (const lista of porSemilla) {
+  for (const { origen, entradas: lista } of ramas) {
     // Una misma semilla puede repetir una canción en su respuesta; contarla dos
     // veces la subiría sin que haya más evidencia de la que hay.
     const vistasEnEstaSemilla = new Set<string>();
@@ -68,7 +84,15 @@ export function mezclar(
       if (previo) {
         previo.puntos += e.match;
         previo.semillas += 1;
+        // Se atribuye a la semilla que más se le parece, no a la primera que
+        // lo trajo: con doce semillas, la primera es casi siempre la del
+        // recorrido y no la que lo explica.
+        if (e.match > (mejor.get(clave) ?? -1)) {
+          mejor.set(clave, e.match);
+          previo.desde = origen;
+        }
       } else {
+        mejor.set(clave, e.match);
         acumulado.set(clave, {
           clave,
           artistaClave: aClave,
@@ -77,6 +101,7 @@ export function mezclar(
           puntos: e.match,
           semillas: 1,
           artistaConocido: artistasConocidos.has(aClave),
+          desde: origen,
         });
       }
     }

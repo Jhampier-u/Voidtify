@@ -1,14 +1,26 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import { streams } from "@/db/schema";
-import { getSimilarTracks } from "@/lib/lastfm";
+import {
+  getArtistTopTracks,
+  getSimilarArtists,
+  getSimilarTracks,
+  getTagTopTracks,
+} from "@/lib/lastfm";
 import { getTopTracks } from "@/lib/stats/tops";
+import { albumKey, artistKey } from "@/lib/stats/normalize";
 import type { StatsRange } from "@/lib/stats/range";
 import type { Db } from "@/lib/stats/shared";
-import { mezclar, type Candidato, type SimilarEntrada } from "./mezcla";
+import { mezclar, type Candidato, type Rama } from "./mezcla";
+import {
+  etiquetaDeSemilla,
+  ramasDePistas,
+  type PistaSemilla,
+  type Semilla,
+} from "./semillas";
 
 /**
- * Cuántas de tus canciones se usan como semilla.
+ * Cuántas de tus canciones se usan como semilla en el modo «tops».
  *
  * Cada una es una llamada a Last.fm, y el limitador las espacia 220 ms: doce
  * semillas son menos de tres segundos. Subirlo mucho alarga la espera sin
@@ -19,10 +31,16 @@ const SEMILLAS = 12;
 /** Sugerencias que se piden por semilla. */
 const POR_SEMILLA = 30;
 
+/** Artistas parecidos que se exploran al partir de un artista. */
+const PARECIDOS = 8;
+
+/** Temas que se toman de cada artista parecido. */
+const TEMAS_POR_PARECIDO = 6;
+
 export type Descubrimiento = {
   candidatos: Candidato[];
-  /** Las canciones tuyas de las que salió todo, para poder explicarlo. */
-  semillas: { titulo: string; artista: string }[];
+  /** De dónde salió todo, para poder explicarlo en pantalla. */
+  semillas: string[];
 };
 
 /**
@@ -47,8 +65,107 @@ function conocido(db: Db): {
   };
 }
 
+/** Las canciones de un álbum tuyo, que sirven de semilla para ese álbum. */
+function pistasDelAlbum(db: Db, artista: string, titulo: string): PistaSemilla[] {
+  const clave = albumKey(artista, titulo);
+  return db.all<PistaSemilla>(sql`
+    SELECT
+      MAX(${streams.artistName}) AS artista,
+      MAX(${streams.trackName})  AS titulo
+    FROM ${streams}
+    WHERE ${streams.albumKey} = ${clave}
+    GROUP BY ${streams.trackKey}
+    ORDER BY COUNT(*) DESC
+    LIMIT 8
+  `);
+}
+
 /**
- * Propone canciones que no has escuchado, a partir de las que más escuchas.
+ * Las ramas que produce cada tipo de semilla.
+ *
+ * Un artista no se resuelve como una canción a propósito. Pedir parecidos de
+ * sus temas devolvería sobre todo más temas del mismo artista y de sus vecinos
+ * inmediatos; partir de `artist.getSimilar` y bajar a los temas de cada
+ * parecido devuelve nombres nuevos, que es lo que se busca al escribir un
+ * artista en el buscador.
+ */
+async function ramasDe(
+  db: Db,
+  semilla: Semilla,
+  range: StatsRange,
+  pistasDePlaylist: PistaSemilla[],
+): Promise<{ ramas: Rama[]; semillas: string[] }> {
+  const porPista = (pistas: PistaSemilla[], origen: (p: PistaSemilla) => string) =>
+    ramasDePistas(
+      pistas,
+      (p) => getSimilarTracks(p.artista, p.titulo, POR_SEMILLA),
+      origen,
+    );
+
+  switch (semilla.tipo) {
+    case "tops": {
+      const top = await getTopTracks(db, range, "plays", SEMILLAS);
+      const pistas = top.map((t) => ({ artista: t.artistName, titulo: t.name }));
+      return {
+        ramas: await porPista(pistas, (p) => `${p.titulo} — ${p.artista}`),
+        semillas: pistas.map((p) => `${p.titulo} — ${p.artista}`),
+      };
+    }
+
+    case "cancion": {
+      const pistas = [{ artista: semilla.artista, titulo: semilla.titulo }];
+      return {
+        ramas: await porPista(pistas, () => etiquetaDeSemilla(semilla)),
+        semillas: [etiquetaDeSemilla(semilla)],
+      };
+    }
+
+    case "album": {
+      const pistas = pistasDelAlbum(db, semilla.artista, semilla.titulo);
+      return {
+        ramas: await porPista(pistas, () => etiquetaDeSemilla(semilla)),
+        semillas: pistas.map((p) => p.titulo),
+      };
+    }
+
+    case "playlist": {
+      return {
+        ramas: await porPista(pistasDePlaylist, () => etiquetaDeSemilla(semilla)),
+        semillas: pistasDePlaylist.map((p) => `${p.titulo} — ${p.artista}`),
+      };
+    }
+
+    case "artista": {
+      const parecidos = (await getSimilarArtists(semilla.nombre, PARECIDOS)).slice(
+        0,
+        PARECIDOS,
+      );
+      const ramas: Rama[] = [];
+      for (const p of parecidos) {
+        const temas = await getArtistTopTracks(p.nombre, TEMAS_POR_PARECIDO);
+        ramas.push({
+          origen: semilla.nombre,
+          // El parecido del artista se hereda a todos sus temas: Last.fm no da
+          // uno por tema aquí, y usar cero dejaría al desempate alfabético
+          // decidiendo el orden de la lista entera.
+          entradas: temas.map((t) => ({ ...t, match: p.match })),
+        });
+      }
+      return { ramas, semillas: parecidos.map((p) => p.nombre) };
+    }
+
+    case "genero": {
+      const temas = await getTagTopTracks(semilla.nombre, 60);
+      return {
+        ramas: [{ origen: semilla.nombre, entradas: temas }],
+        semillas: [semilla.nombre],
+      };
+    }
+  }
+}
+
+/**
+ * Propone canciones que no has escuchado, a partir de la semilla que se pida.
  *
  * El motor es Last.fm porque `/recommendations` de Spotify devuelve 404 desde
  * que lo retiraron. A cambio tenemos algo que ningún motor ajeno tiene: el
@@ -59,22 +176,20 @@ export async function descubrir(
   db: Db,
   range: StatsRange,
   limite = 40,
+  semilla: Semilla = { tipo: "tops" },
+  /** Pistas de la playlist, ya resueltas fuera: aquí no se habla con Spotify. */
+  pistasDePlaylist: PistaSemilla[] = [],
 ): Promise<Descubrimiento> {
-  const top = await getTopTracks(db, range, "plays", SEMILLAS);
-  if (top.length === 0) return { candidatos: [], semillas: [] };
-
-  // En serie a propósito: el limitador de Last.fm es una cola única, así que
-  // lanzarlas en paralelo no las aceleraría y sí haría más difícil saber cuál
-  // falló.
-  const porSemilla: SimilarEntrada[][] = [];
-  for (const t of top) {
-    porSemilla.push(await getSimilarTracks(t.artistName, t.name, POR_SEMILLA));
-  }
+  const { ramas, semillas } = await ramasDe(db, semilla, range, pistasDePlaylist);
+  if (ramas.length === 0) return { candidatos: [], semillas: [] };
 
   const { canciones, artistas } = conocido(db);
 
   return {
-    candidatos: mezclar(porSemilla, canciones, artistas, limite),
-    semillas: top.map((t) => ({ titulo: t.name, artista: t.artistName })),
+    candidatos: mezclar(ramas, canciones, artistas, limite),
+    semillas,
   };
 }
+
+/** Reexportado para que la acción no tenga que conocer dos módulos. */
+export { artistKey };
