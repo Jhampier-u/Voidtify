@@ -1,4 +1,5 @@
 import type { Variacion } from "@/lib/stats/variacion";
+import { CambioRelativo } from "./Cambio";
 
 type Tile = {
   label: string;
@@ -42,44 +43,12 @@ export default function StatTiles({ tiles }: { tiles: Tile[] }) {
             >
               {t.valor}
             </span>
-            {t.variacion && <Cambio v={t.variacion} />}
+            {t.variacion && <CambioRelativo v={t.variacion} />}
           </dd>
 
           {t.nota && <dd className="label-mono text-mute mt-2">{t.nota}</dd>}
         </div>
       ))}
     </dl>
-  );
-}
-
-/**
- * El cambio, en pequeño y al lado de la cifra.
- *
- * `igual` y `desconocido` no pintan nada. Un «0 %» o un «—» ocupan sitio para
- * decir que no hay noticia, y cuatro casillas con guiones se leen como que algo
- * ha fallado.
- */
-function Cambio({ v }: { v: Variacion }) {
-  if (v.sentido === "igual" || v.sentido === "desconocido") return null;
-
-  if (v.sentido === "estreno") {
-    return (
-      <span
-        className="label-mono text-acid"
-        title="no hubo nada en el mismo periodo anterior"
-      >
-        estreno
-      </span>
-    );
-  }
-
-  const sube = v.sentido === "sube";
-  return (
-    <span
-      className={`label-mono num-tabular ${sube ? "text-acid" : "text-blood"}`}
-      title="frente al mismo periodo anterior, de igual duración"
-    >
-      {sube ? "↑" : "↓"} {Math.abs(v.pct ?? 0)} %
-    </span>
   );
 }

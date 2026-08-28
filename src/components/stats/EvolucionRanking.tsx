@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Miniatura from "./Miniatura";
+import { CambioDePuesto } from "./Cambio";
 import type { Evolucion } from "@/lib/stats/evolucion-spotify";
 
 const ANCHO = 120;
@@ -76,19 +77,6 @@ function Linea({ posiciones }: { posiciones: (number | null)[] }) {
   );
 }
 
-function Delta({ valor }: { valor: number | null }) {
-  if (valor === null) {
-    return <span className="label-mono text-acid">entra</span>;
-  }
-  if (valor === 0) return <span className="label-mono text-mute">=</span>;
-  const sube = valor > 0;
-  return (
-    <span className={`label-mono num-tabular ${sube ? "text-acid" : "text-blood"}`}>
-      {sube ? "↑" : "↓"} {Math.abs(valor)}
-    </span>
-  );
-}
-
 /**
  * Cómo se ha movido el ranking de Spotify entre las tomas guardadas.
  *
@@ -147,7 +135,7 @@ export default function EvolucionRanking({
               </span>
               <Linea posiciones={s.posiciones} />
               <span className="w-12 shrink-0 text-right">
-                <Delta valor={s.delta} />
+                <CambioDePuesto delta={s.delta} />
               </span>
             </>
           );

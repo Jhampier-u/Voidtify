@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import Miniatura from "./Miniatura";
+import { CambioDePuesto } from "./Cambio";
 import {
   rellenarGeneros,
   type ResultadoRelleno,
@@ -172,7 +173,9 @@ export default function GenrePanel({
                     {g.name}
                   </span>
 
-                  <Delta valor={deltaDe.get(g.clave)} />
+                  <span className="w-10 shrink-0">
+                    <CambioDePuesto delta={deltaDe.get(g.clave)} />
+                  </span>
 
                   <span className="h-3 flex-1 overflow-hidden rounded-full bg-ink-2">
                     <span
@@ -361,35 +364,6 @@ const MESES = [
 function mesLargo(fecha: string): string {
   const [a, m] = fecha.split("-").map(Number);
   return `${MESES[m - 1]} de ${a}`;
-}
-
-/**
- * Puestos ganados o perdidos frente al periodo anterior.
- *
- * Se compara la posición y no el porcentaje: el porcentaje de un género depende
- * de todos los demás, así que basta con que aparezca un artista nuevo muy
- * escuchado para que todo lo demás baje unas décimas sin haber cambiado nada.
- */
-function Delta({ valor }: { valor: number | null | undefined }) {
-  if (valor === undefined) return null;
-  if (valor === null) {
-    return <span className="label-mono shrink-0 text-acid">nuevo</span>;
-  }
-  if (valor === 0) return <span className="w-10 shrink-0" aria-hidden />;
-
-  const sube = valor > 0;
-  return (
-    <span
-      className={`label-mono num-tabular w-10 shrink-0 ${
-        sube ? "text-acid" : "text-blood"
-      }`}
-      title={`${sube ? "sube" : "baja"} ${Math.abs(valor)} ${
-        Math.abs(valor) === 1 ? "puesto" : "puestos"
-      } frente al periodo anterior`}
-    >
-      {sube ? "↑" : "↓"} {Math.abs(valor)}
-    </span>
-  );
 }
 
 /**

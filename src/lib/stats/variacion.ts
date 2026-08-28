@@ -37,3 +37,23 @@ export function variacion(ahora: number, antes: number | null): Variacion {
   if (pct === 0) return { pct: 0, sentido: "igual" };
   return { pct, sentido: pct > 0 ? "sube" : "baja" };
 }
+
+export type SentidoPuesto = "sube" | "baja" | "igual" | "entra";
+
+/**
+ * Qué le ha pasado a algo dentro de un ranking.
+ *
+ * `null` es «no estaba antes». Positivo sube: bajar de número es mejorar, y
+ * esa inversión es justo la que se olvida al escribirla suelta en cada sitio.
+ *
+ * Existía tres veces en el proyecto —en los informes, en los géneros y en la
+ * evolución del ranking— con tres vocabularios distintos: la misma entrada
+ * nueva se llamaba «entra» en una pantalla y «nuevo» en otra.
+ */
+export function sentidoDePuesto(
+  delta: number | null | undefined,
+): SentidoPuesto {
+  if (typeof delta !== "number") return "entra";
+  if (delta === 0) return "igual";
+  return delta > 0 ? "sube" : "baja";
+}

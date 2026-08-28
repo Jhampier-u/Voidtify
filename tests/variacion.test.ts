@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { variacion } from "@/lib/stats/variacion";
+import { sentidoDePuesto, variacion } from "@/lib/stats/variacion";
 
 describe("variacion", () => {
   it("sube cuando hay más", () => {
@@ -42,5 +42,25 @@ describe("variacion", () => {
 
   it("aguanta una caída a cero", () => {
     expect(variacion(0, 100)).toEqual({ pct: -100, sentido: "baja" });
+  });
+});
+
+describe("sentidoDePuesto", () => {
+  // Positivo sube: bajar de numero es mejorar, y esa inversion es la que se
+  // olvida al escribirla suelta en cada pantalla.
+  it("positivo es subir", () => {
+    expect(sentidoDePuesto(4)).toBe("sube");
+    expect(sentidoDePuesto(-4)).toBe("baja");
+  });
+
+  it("cero es igual", () => {
+    expect(sentidoDePuesto(0)).toBe("igual");
+  });
+
+  // Existia tres veces con tres vocabularios: la misma entrada nueva se
+  // llamaba «entra» en informes y «nuevo» en generos.
+  it("sin puesto anterior, entra", () => {
+    expect(sentidoDePuesto(null)).toBe("entra");
+    expect(sentidoDePuesto(undefined)).toBe("entra");
   });
 });

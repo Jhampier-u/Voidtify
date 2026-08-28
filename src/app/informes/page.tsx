@@ -11,6 +11,11 @@ import {
 } from "@/lib/stats/periodo";
 import TopBar from "@/components/TopBar";
 import Miniatura from "@/components/stats/Miniatura";
+import {
+  CambioDePuesto,
+  CambioRelativo,
+} from "@/components/stats/Cambio";
+import { variacion } from "@/lib/stats/variacion";
 import { getCaratulas, getImagenesDeArtistas } from "@/lib/stats/imagenes";
 
 export const dynamic = "force-dynamic";
@@ -23,45 +28,6 @@ const TIPOS: { id: TipoPeriodo; label: string }[] = [
 
 function esTipo(v: string | undefined): v is TipoPeriodo {
   return v === "semana" || v === "mes" || v === "anio";
-}
-
-/** Variación relativa, o null si no hay con qué comparar. */
-function variacion(ahora: number, antes: number): number | null {
-  if (antes === 0) return null;
-  return (ahora - antes) / antes;
-}
-
-function Delta({ valor }: { valor: number | null }) {
-  if (valor === null) {
-    return <span className="label-mono text-mute">sin comparación</span>;
-  }
-  const pct = Math.round(valor * 100);
-  if (pct === 0) return <span className="label-mono text-mute">igual</span>;
-  return (
-    <span className={`label-mono ${pct > 0 ? "text-acid" : "text-blood"}`}>
-      {pct > 0 ? "+" : ""}
-      {pct} %
-    </span>
-  );
-}
-
-/**
- * El movimiento se dice con palabra y con flecha, no solo con color: en verde y
- * rojo, subir y bajar son indistinguibles para buena parte de la gente.
- */
-function Movimiento({ fila }: { fila: FilaComparada }) {
-  if (fila.movimiento === "nuevo") {
-    return <span className="label-mono text-acid">entra</span>;
-  }
-  if (fila.movimiento === "igual") {
-    return <span className="label-mono text-mute">=</span>;
-  }
-  const sube = fila.movimiento === "sube";
-  return (
-    <span className={`label-mono num-tabular ${sube ? "text-acid" : "text-blood"}`}>
-      {sube ? "↑" : "↓"} {Math.abs(fila.delta ?? 0)}
-    </span>
-  );
 }
 
 function Ranking({
@@ -104,7 +70,7 @@ function Ranking({
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-4">
-                  <Movimiento fila={f} />
+                  <CambioDePuesto delta={f.delta} />
                   <span className="dato-mono text-mute">
                     {f.plays.toLocaleString("es")}
                   </span>
@@ -260,7 +226,7 @@ export default async function Informes({
                 {t.valor}
               </dd>
               <dd className="mt-2">
-                <Delta valor={t.delta} />
+                <CambioRelativo v={t.delta} />
               </dd>
             </div>
           ))}
