@@ -24,6 +24,25 @@ function origenesDeDesarrollo(): string[] {
 const nextConfig: NextConfig = {
   allowedDevOrigins: origenesDeDesarrollo(),
 
+  experimental: {
+    serverActions: {
+      /**
+       * Orígenes desde los que se aceptan Server Actions en producción.
+       *
+       * `allowedDevOrigins` solo vale en `next dev`. En producción Next compara
+       * la cabecera `Origin` con `Host` para frenar CSRF, y detrás de un túnel
+       * no coinciden: el navegador manda el dominio público y el servidor ve
+       * `127.0.0.1:3210`. Sin esto, al pasar a producción volverían a fallar en
+       * silencio las mismas cosas que ya fallaron una vez — desplegar un
+       * género, adelantar un lote, guardar una sugerencia.
+       *
+       * Sale de `AUTH_URL`, como los de desarrollo, para no tener dos sitios
+       * donde apuntar el mismo dominio y que acaben separándose.
+       */
+      allowedOrigins: origenesDeDesarrollo(),
+    },
+  },
+
   // Pin Turbopack's workspace root to this project. Without it, Next.js
   // detects a stray package-lock.json elsewhere and tries to resolve modules
   // from the wrong directory, breaking tailwindcss resolution.
