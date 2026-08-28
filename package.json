@@ -6,6 +6,7 @@
     "dev": "next dev -H 127.0.0.1 -p 3210",
     "build": "next build",
     "start": "next start -H 127.0.0.1 -p 3210",
+    "produccion": "next build && next start -H 127.0.0.1 -p 3210",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",

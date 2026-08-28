@@ -1,5 +1,6 @@
 
 import Image from "next/image";
+import Pendiente from "@/components/Pendiente";
 import Link from "next/link";
 import { signOut } from "@/auth";
 import type { SpotifyUser } from "@/lib/spotify";
@@ -26,9 +27,10 @@ export default function TopBar({
     >
       <Link
         href="/"
-        className="label-mono shrink-0 text-cream transition-colors hover:text-acid"
+        className="label-mono relative shrink-0 text-cream transition-colors hover:text-acid"
       >
         LEDGER
+        <Pendiente />
       </Link>
 
       {/* Se desplaza en horizontal en vez de esconderse. Estaba en
@@ -114,12 +116,16 @@ function NavLink({
       // El texto mide once pixeles: sin relleno, la zona que se puede tocar
       // era de quince y en un telefono se falla mas de lo que se acierta. El
       // margen negativo absorbe el relleno, asi que la barra no crece.
-      className={`label-mono -my-3.5 shrink-0 whitespace-nowrap px-1 py-3.5
-                  transition-colors ${
+      // `relative` para que el subrayado de espera se coloque contra el
+      // enlace. Las paginas tardan entre medio segundo y casi cuatro, y sin
+      // acuse del toque una interfaz se siente rota antes que lenta.
+      className={`label-mono relative -my-3.5 shrink-0 whitespace-nowrap px-1
+                  py-3.5 transition-colors ${
                     active ? "text-acid" : "text-mute hover:text-cream"
                   }`}
     >
       {children}
+      <Pendiente />
     </Link>
   );
 }
