@@ -111,9 +111,13 @@ function NavLink({
       href={href}
       // `whitespace-nowrap`: sin el, «Biblioteca» se parte en dos lineas
       // dentro del carril desplazable y descuadra la barra entera.
-      className={`label-mono shrink-0 whitespace-nowrap transition-colors ${
-        active ? "text-acid" : "text-mute hover:text-cream"
-      }`}
+      // El texto mide once pixeles: sin relleno, la zona que se puede tocar
+      // era de quince y en un telefono se falla mas de lo que se acierta. El
+      // margen negativo absorbe el relleno, asi que la barra no crece.
+      className={`label-mono -my-3.5 shrink-0 whitespace-nowrap px-1 py-3.5
+                  transition-colors ${
+                    active ? "text-acid" : "text-mute hover:text-cream"
+                  }`}
     >
       {children}
     </Link>

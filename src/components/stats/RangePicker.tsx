@@ -28,9 +28,13 @@ export default function RangePicker({
         <Link
           key={id}
           href={`${base}?preset=${id}`}
-          className={`label-mono relative transition-colors duration-200 ${
-            range.preset === id ? "text-acid" : "text-mute hover:text-cream"
-          }`}
+          // `py-3 -my-3` y `px-2 -mx-2`: la zona que se puede tocar crece de
+          // unos quince pixeles a casi cuarenta sin mover nada de sitio. El
+          // texto mide once y en un telefono era casi imposible acertar.
+          className={`label-mono relative -mx-2 -my-3.5 px-2 py-3.5
+                      transition-colors duration-200 ${
+                        range.preset === id ? "text-acid" : "text-mute hover:text-cream"
+                      }`}
         >
           {label}
           <Pendiente />

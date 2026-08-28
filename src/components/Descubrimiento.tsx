@@ -373,7 +373,9 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
             setSoloNuevos((v) => !v);
             setIndice(0);
           }}
-          className={`label-mono transition-colors ${
+          // Mismo criterio que en la barra y el selector de rango: el texto
+          // mide once pixeles y sin relleno no hay donde tocar.
+          className={`label-mono -my-3 py-3 transition-colors ${
             soloNuevos ? "text-acid" : "text-mute hover:text-cream"
           }`}
         >
@@ -390,7 +392,7 @@ export default function Descubrimiento({ preset }: { preset?: string }) {
                 setNivel(n);
                 setIndice(0);
               }}
-              className={`label-mono rounded-full border px-3 py-1 transition-colors ${
+              className={`label-mono rounded-full border px-3 py-2 transition-colors ${
                 nivel === n
                   ? "border-acid text-acid"
                   : "border-rule text-mute hover:text-cream"
